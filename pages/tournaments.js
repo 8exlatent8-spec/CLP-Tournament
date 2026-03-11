@@ -1,6 +1,7 @@
+import React from 'react'
 import { styled, createGlobalStyle } from 'styled-components'
 import Navbar from "@/components/Navbar"
-import Hero from "@/components/Hero"
+import Hero from "@/components/tournaments/Hero"
 
 const GlobalStyle = createGlobalStyle`
   html, body {
@@ -16,14 +17,14 @@ const PageRoot = styled.div`
   max-width: 100vw;
 `;
 
-export default function Home() {
+const Tournaments = () => {
   return (
     <>
-      <GlobalStyle />
-      <PageRoot>
-          <Navbar/>
-          <Hero/>
-      </PageRoot>
+      <Navbar/>
+      <Hero/>
     </>
+
   )
 }
+
+export default Tournaments

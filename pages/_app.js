@@ -3,19 +3,28 @@ import { StateContext } from "@/context/StateContext"
 import { createGlobalStyle } from 'styled-components'
 
 export const GlobalStyle = createGlobalStyle`
-  * 
-  {
+  * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
   }
+  /* hide all scrollbars globally */
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
+  html, body {
+    overflow-x: hidden;
+  }
 `
-
 export default function App({ Component, pageProps }) {
   return (
     <>
         <Head>
-          <title>MVP Starter</title>
+          <title>Clapped Guild</title>
           <meta name='description' content='Put a description here about your app'/>
           <meta name='robots' content='index, follow'/>
           <link rel="apple-touch-icon" sizes="180x180" href="/favicon_package/apple-touch-icon.png"/>
@@ -24,6 +33,7 @@ export default function App({ Component, pageProps }) {
           <link rel="manifest" href="/favicon_package/site.webmanifest"/>
           <meta name="msapplication-TileColor" content="#da532c"/>
           <meta name="theme-color" content="#ffffff"/>
+          <link rel="icon" type="image/png" href="/icon.png"></link>
         </Head>
 
         <GlobalStyle />
