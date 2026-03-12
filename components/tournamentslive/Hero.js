@@ -3077,16 +3077,19 @@ export default function Hero() {
 
   useEffect(() => {
     if (!tournamentName) return;
-    async function loadTeams() {
-      try {
-        const { getDocs, collection, query, orderBy } = await import("firebase/firestore");
-        const { database } = await import("@/backend/Firebase");
-        const teamsQuery = query(collection(database, "tournaments", tournamentName, "teams"), orderBy("createdAt", "asc"));
-        const teamsSnap = await getDocs(teamsQuery);
-        setTeams(teamsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch (e) { console.error("Failed to load teams:", e); }
-    }
-    loadTeams();
+    let unsub;
+    (async () => {
+      const { collection, query, orderBy, onSnapshot } = await import("firebase/firestore");
+      const { database } = await import("@/backend/Firebase");
+      const teamsQuery = query(
+        collection(database, "tournaments", tournamentName, "teams"),
+        orderBy("createdAt", "asc")
+      );
+      unsub = onSnapshot(teamsQuery, snap => {
+        setTeams(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      }, e => console.error("Teams listener error:", e));
+    })();
+    return () => { if (unsub) unsub(); };
   }, [tournamentName]);
 
   useEffect(() => {

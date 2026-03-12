@@ -815,44 +815,34 @@ const [pan, setPan] = useState({ x: 40, y: 80 });
   }, [teams]);
 
   const teamIds = teams.map(t => t.id).sort().join(',');
+  const isInitializedRef = useRef(false);
+  const unsubscribeMatchesRef = useRef(null);
+
   useEffect(() => {
     if (!tournamentName || teams.length < 2) { setLoading(false); return; }
+    isInitializedRef.current = false;
+
     (async () => {
       setLoading(true);
       try {
-        const { getDocs, collection, writeBatch, doc } = await import("firebase/firestore");
+        const { getDocs, collection, writeBatch, doc, onSnapshot } = await import("firebase/firestore");
         const { database } = await import("@/backend/Firebase");
         const snap = await getDocs(collection(database, "tournaments", tournamentName, "matches"));
         const currentTeamIds = new Set(teams.map(t => t.id));
 
-const bracketsAreStale = snap.empty || (() => {
-  const bracketTeamIds = new Set();
-  snap.docs.forEach(d => {
-    const m = d.data();
-    // Collect all team IDs from all match types, not just round-1 winner matches
-    if (m.team1Id && !m.isGhost && !m.isBye) bracketTeamIds.add(m.team1Id);
-    if (m.team2Id && !m.isGhost && !m.isBye) bracketTeamIds.add(m.team2Id);
-  });
-  // Only stale if a team was added or removed — not just because shuffle differs
-  for (const id of bracketTeamIds) { if (!currentTeamIds.has(id)) return true; }
-  for (const id of currentTeamIds) { if (!bracketTeamIds.has(id)) return true; }
-  return false;
-})();
-
-        if (!bracketsAreStale) {
-          const loaded = snap.docs.map(d => ({ ...d.data(), firestoreId: d.id }));
-          // Re-fetch to make sure videoLink fields from setDoc merges are included
-          // Build a map from internal match id -> full doc data
-          const byInternalId = {};
+        const bracketsAreStale = snap.empty || (() => {
+          const bracketTeamIds = new Set();
           snap.docs.forEach(d => {
-            const data = d.data();
-            if (data.id) byInternalId[data.id] = { ...data, firestoreId: d.id };
+            const m = d.data();
+            if (m.team1Id && !m.isGhost && !m.isBye) bracketTeamIds.add(m.team1Id);
+            if (m.team2Id && !m.isGhost && !m.isBye) bracketTeamIds.add(m.team2Id);
           });
-          setMatches(loaded.map(m => ({
-            ...m,
-            videoLink: byInternalId[m.id]?.videoLink || m.videoLink || null,
-          })));
-        } else {
+          for (const id of bracketTeamIds) { if (!currentTeamIds.has(id)) return true; }
+          for (const id of currentTeamIds) { if (!bracketTeamIds.has(id)) return true; }
+          return false;
+        })();
+
+        if (bracketsAreStale) {
           const deleteBatch = writeBatch(database);
           snap.docs.forEach(d => deleteBatch.delete(d.ref));
           await deleteBatch.commit();
@@ -865,12 +855,34 @@ const bracketsAreStale = snap.empty || (() => {
             createBatch.set(ref, m);
           });
           await createBatch.commit();
-          setMatches(generated);
         }
-      } catch (e) { console.error("Bracket error:", e); }
-      setLoading(false);
+
+        // Unsubscribe any previous listener
+        if (unsubscribeMatchesRef.current) unsubscribeMatchesRef.current();
+
+        // Real-time listener — both admins see changes instantly
+        unsubscribeMatchesRef.current = onSnapshot(
+          collection(database, "tournaments", tournamentName, "matches"),
+          (snapshot) => {
+            const loaded = snapshot.docs.map(d => ({ ...d.data(), firestoreId: d.id }));
+            setMatches(loaded);
+            if (!isInitializedRef.current) {
+              isInitializedRef.current = true;
+              setLoading(false);
+            }
+          },
+          (err) => { console.error("Match listener error:", err); setLoading(false); }
+        );
+      } catch (e) { console.error("Bracket error:", e); setLoading(false); }
     })();
-}, [tournamentName, teamIds]);
+
+    return () => {
+      if (unsubscribeMatchesRef.current) {
+        unsubscribeMatchesRef.current();
+        unsubscribeMatchesRef.current = null;
+      }
+    };
+  }, [tournamentName, teamIds]);
 
   // ── Pick winner ────────────────────────────────────────────────────────────
   const handlePickWinner = async (match, winnerId) => {
@@ -896,17 +908,24 @@ const bracketsAreStale = snap.empty || (() => {
 
     let updated = matches.map(m => m.id !== match.id ? m : { ...m, winner: winnerId, status: 'complete' });
     updated = propagate(updated, match.id, winnerId, 'winner');
-    updated = propagate(updated, match.id, loserId,  'loser');
-    setMatches(updated);
+    updated = propagate(updated, match.id, loserId, 'loser');
+    // Don't call setMatches here — the onSnapshot listener will update state
 
     try {
       const { collection: col, getDocs, writeBatch } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
       const snap = await getDocs(col(database, "tournaments", tournamentName, "matches"));
+      const changedIds = new Set(
+        updated.filter((u, i) => {
+          const orig = matches[i];
+          return !orig || u.winner !== orig.winner || u.status !== orig.status ||
+                 u.team1Id !== orig.team1Id || u.team2Id !== orig.team2Id;
+        }).map(u => u.id)
+      );
       const batch = writeBatch(database);
       snap.docs.forEach(d => {
         const u = updated.find(m => m.id === d.data().id);
-        if (u) { const { firestoreId, ...data } = u; batch.update(d.ref, data); }
+        if (u && changedIds.has(u.id)) { const { firestoreId, ...data } = u; batch.update(d.ref, data); }
       });
       await batch.commit();
     } catch (e) { console.error("Failed to save winner:", e); }
@@ -920,7 +939,7 @@ const bracketsAreStale = snap.empty || (() => {
       const m = list.find(x => x.id === matchId);
       if (!m) return list;
       list = list.map(x => x.id !== matchId ? x : { ...x, winner: null, status: 'pending' });
-      for (const [nextId, slot] of [[m.nextWinnerMatch, 'winner'], [m.nextLoserMatch, 'loser']]) {
+      for (const [nextId] of [[m.nextWinnerMatch], [m.nextLoserMatch]]) {
         if (!nextId) continue;
         const next = list.find(x => x.id === nextId);
         if (!next) continue;
@@ -936,15 +955,23 @@ const bracketsAreStale = snap.empty || (() => {
       return list;
     };
     const updated = collectAffected(match.id, [...matches]);
-    setMatches(updated);
+    // Don't call setMatches here — the onSnapshot listener will update state
+
     try {
       const { collection: col, getDocs, writeBatch } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
       const snap = await getDocs(col(database, "tournaments", tournamentName, "matches"));
+      const changedIds = new Set(
+        updated.filter((u) => {
+          const orig = matches.find(m => m.id === u.id);
+          return !orig || u.winner !== orig.winner || u.status !== orig.status ||
+                 u.team1Id !== orig.team1Id || u.team2Id !== orig.team2Id;
+        }).map(u => u.id)
+      );
       const batch = writeBatch(database);
       snap.docs.forEach(d => {
         const u = updated.find(m => m.id === d.data().id);
-        if (u) { const { firestoreId, ...data } = u; batch.update(d.ref, data); }
+        if (u && changedIds.has(u.id)) { const { firestoreId, ...data } = u; batch.update(d.ref, data); }
       });
       await batch.commit();
     } catch (e) { console.error("Failed to save undecide:", e); }
