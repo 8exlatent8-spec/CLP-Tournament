@@ -2685,7 +2685,13 @@ function ResultsView({ teams, tournamentName, format, participants, router }) {
         }
 
         const snap = await getDocs(collection(database, "tournaments", tournamentName, "matches"));
-        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const docMap = {};
+        const all = snap.docs.map(d => {
+          const data = d.data();
+          if (data.id) docMap[data.id] = d.ref;
+          return { ...d.id, ...data };
+        });
+        matchDocMapRef.current = docMap;
         setMatches(all);
 
         // seed video links from existing match data
@@ -2792,16 +2798,14 @@ function ResultsView({ teams, tournamentName, format, participants, router }) {
     load();
   }, [tournamentName, teams]);
 
-  const handleVideoBlur = async (matchId, value) => {
+const handleVideoBlur = async (matchId, value) => {
     if (!value.trim()) return;
     try {
-      const { getDocs, collection, setDoc, doc } = await import("firebase/firestore");
+      const { updateDoc } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
-      // matchId is the internal id field (m1, m3...), find the actual Firestore doc
-      const snap = await getDocs(collection(database, "tournaments", tournamentName, "matches"));
-      const matchDoc = snap.docs.find(d => d.data().id === matchId);
-      if (!matchDoc) { console.error("Match doc not found for id:", matchId); return; }
-      await setDoc(matchDoc.ref, { videoLink: value.trim() }, { merge: true });
+      const ref = matchDocMapRef.current?.[matchId];
+      if (!ref) { console.error("No cached ref for match:", matchId); return; }
+      await updateDoc(ref, { videoLink: value.trim() });
     } catch (e) {
       console.error("Failed to save video link:", e);
     }
@@ -3041,23 +3045,7 @@ export default function Hero() {
     loadPhase();
   }, [tournamentName]);
 
-  useEffect(() => {
-    if (!participants.length) return;
-    async function loadMemberImages() {
-      try {
-        const { getDoc, doc } = await import("firebase/firestore");
-        const { database } = await import("@/backend/Firebase");
-        const entries = await Promise.all(
-          participants.map(async (name) => {
-            const snap = await getDoc(doc(database, "members", name));
-            return [name, snap.exists() ? (snap.data().imglink || snap.data().imgLink || "") : ""];
-          })
-        );
-        setMemberImages(prev => ({ ...prev, ...Object.fromEntries(entries) }));
-      } catch (e) { console.error("Failed to load member images:", e); }
-    }
-    loadMemberImages();
-  }, [participants]);
+  
 
   useEffect(() => {
     async function loadAllMembers() {

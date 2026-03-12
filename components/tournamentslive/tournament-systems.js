@@ -814,9 +814,10 @@ const [pan, setPan] = useState({ x: 40, y: 80 });
     setTeamMap(map);
   }, [teams]);
 
-  const teamIds = teams.map(t => t.id).sort().join(',');
+const teamIds = teams.map(t => t.id).sort().join(',');
   const isInitializedRef = useRef(false);
   const unsubscribeMatchesRef = useRef(null);
+  const firestoreDocMapRef = useRef({});
 
   useEffect(() => {
     if (!tournamentName || teams.length < 2) { setLoading(false); return; }
@@ -864,7 +865,13 @@ const [pan, setPan] = useState({ x: 40, y: 80 });
         unsubscribeMatchesRef.current = onSnapshot(
           collection(database, "tournaments", tournamentName, "matches"),
           (snapshot) => {
-            const loaded = snapshot.docs.map(d => ({ ...d.data(), firestoreId: d.id }));
+            const newDocMap = {};
+            const loaded = snapshot.docs.map(d => {
+              const data = d.data();
+              if (data.id) newDocMap[data.id] = d.ref;
+              return { ...data, firestoreId: d.id };
+            });
+            firestoreDocMapRef.current = newDocMap;
             setMatches(loaded);
             if (!isInitializedRef.current) {
               isInitializedRef.current = true;
@@ -912,20 +919,23 @@ const [pan, setPan] = useState({ x: 40, y: 80 });
     // Don't call setMatches here — the onSnapshot listener will update state
 
     try {
-      const { collection: col, getDocs, writeBatch } = await import("firebase/firestore");
+      const { writeBatch } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
-      const snap = await getDocs(col(database, "tournaments", tournamentName, "matches"));
+      const docMap = firestoreDocMapRef.current;
       const changedIds = new Set(
-        updated.filter((u, i) => {
-          const orig = matches[i];
+        updated.filter((u) => {
+          const orig = matches.find(m => m.id === u.id);
           return !orig || u.winner !== orig.winner || u.status !== orig.status ||
                  u.team1Id !== orig.team1Id || u.team2Id !== orig.team2Id;
         }).map(u => u.id)
       );
       const batch = writeBatch(database);
-      snap.docs.forEach(d => {
-        const u = updated.find(m => m.id === d.data().id);
-        if (u && changedIds.has(u.id)) { const { firestoreId, ...data } = u; batch.update(d.ref, data); }
+      updated.forEach(u => {
+        if (!changedIds.has(u.id)) return;
+        const ref = docMap[u.id];
+        if (!ref) return;
+        const { firestoreId, ...data } = u;
+        batch.update(ref, data);
       });
       await batch.commit();
     } catch (e) { console.error("Failed to save winner:", e); }
