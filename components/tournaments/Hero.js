@@ -293,29 +293,43 @@ const StandingsTitle = styled.div`
   z-index: 1;
 `;
 
+const StandingsScrollWrap = styled.div`
+  height: calc(5 * 58px);
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+  position: relative;
+  z-index: 1;
+`;
+
 const LeaderboardRow = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 9px 10px;
   margin-bottom: 7px;
-  background: ${p => p.$rank === 1
-    ? 'rgba(200,170,110,0.1)'
-    : p.$rank === 2
-      ? 'rgba(180,180,200,0.06)'
-      : p.$rank === 3
-        ? 'rgba(180,120,60,0.07)'
-        : 'rgba(200,170,110,0.025)'};
-  border: 1px solid ${p => p.$rank === 1
-    ? 'rgba(200,170,110,0.4)'
-    : p.$rank === 2
-      ? 'rgba(180,180,200,0.2)'
-      : p.$rank === 3
-        ? 'rgba(180,120,60,0.25)'
-        : 'rgba(200,170,110,0.1)'};
+  cursor: pointer;
+  background: ${p => p.$active
+    ? 'rgba(200,170,110,0.14)'
+    : p.$rank === 1
+      ? 'rgba(200,170,110,0.1)'
+      : p.$rank === 2
+        ? 'rgba(180,180,200,0.06)'
+        : p.$rank === 3
+          ? 'rgba(180,120,60,0.07)'
+          : 'rgba(200,170,110,0.025)'};
+  border: 1px solid ${p => p.$active
+    ? 'rgba(200,170,110,0.7)'
+    : p.$rank === 1
+      ? 'rgba(200,170,110,0.4)'
+      : p.$rank === 2
+        ? 'rgba(180,180,200,0.2)'
+        : p.$rank === 3
+          ? 'rgba(180,120,60,0.25)'
+          : 'rgba(200,170,110,0.1)'};
   clip-path: polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0% calc(100% - 6px), 0% 6px);
-  position: relative;
-  z-index: 1;
+  transition: background 0.25s ease, border-color 0.25s ease;
 `;
 
 const LeaderboardRank = styled.div`
@@ -356,6 +370,63 @@ const LeaderboardTeamName = styled.div`
   white-space: nowrap;
   flex: 1;
   text-shadow: ${p => p.$rank === 1 ? '0 0 12px rgba(200,170,110,0.4)' : 'none'};
+`;
+
+const MembersPanel = styled.div`
+  margin-top: 14px;
+  border-top: 1px solid rgba(200,170,110,0.12);
+  padding-top: 12px;
+  position: relative;
+  z-index: 1;
+`;
+
+const MembersPanelTitle = styled.div`
+  font-family: 'Cinzel', serif;
+  font-size: 0.42rem;
+  letter-spacing: 0.45em;
+  text-transform: uppercase;
+  color: rgba(200,170,110,0.4);
+  text-align: center;
+  margin-bottom: 10px;
+`;
+
+const MembersScrollWrap = styled.div`
+  height: calc(5 * 42px);
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+`;
+
+const MemberRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  margin-bottom: 5px;
+  background: rgba(200,170,110,0.03);
+  border: 1px solid rgba(200,170,110,0.09);
+  clip-path: polygon(5px 0%, calc(100% - 5px) 0%, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0% calc(100% - 5px), 0% 5px);
+`;
+
+const MemberAvatar = styled.img`
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(200,170,110,0.2);
+  flex-shrink: 0;
+`;
+
+const MemberName = styled.div`
+  font-family: 'Cinzel', serif;
+  font-size: 0.54rem;
+  letter-spacing: 0.1em;
+  color: rgba(200,170,110,0.7);
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
 
 // ─── Static data ──────────────────────────────────────────────────────────────
@@ -734,6 +805,23 @@ export default function Hero() {
   const [teams, setTeams] = useState([]);
   const [standings, setStandings] = useState([]);
   const [format, setFormat] = useState("Double-Elimination");
+  const [matchVideoMap, setMatchVideoMap] = useState({});
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [memberProfiles, setMemberProfiles] = useState({});
+
+  useEffect(() => {
+    async function loadProfiles() {
+      try {
+        const { getDocs, collection } = await import("firebase/firestore");
+        const { database } = await import("@/backend/Firebase");
+        const snap = await getDocs(collection(database, "members"));
+        const map = {};
+        snap.docs.forEach(d => { map[d.id] = d.data(); });
+        setMemberProfiles(map);
+      } catch (e) { console.error("Failed to load member profiles:", e); }
+    }
+    loadProfiles();
+  }, []);
 
   // ── load teams ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -767,6 +855,10 @@ export default function Hero() {
 
         const snap = await getDocs(collection(database, "tournaments", tournamentName, "matches"));
         const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        const videoMap = {};
+        all.forEach(m => { if (m.videoLink) videoMap[m.id] = m.videoLink; });
+        setMatchVideoMap(videoMap);
 
         const rankMap = {};
         const getLoser = m => (!m.winner ? null : m.team1Id === m.winner ? m.team2Id : m.team1Id);
@@ -863,6 +955,13 @@ export default function Hero() {
     backBtn:       backBtnRef,
   });
 
+  const handleMatchClick = (match) => {
+    const link = matchVideoMap[match.id];
+    if (link) {
+      window.open(link, "_blank", "noopener,noreferrer");
+    }
+  };
+
   const handleBack = () => {
     if (!backBtnRef.current) { router.push("/"); return; }
     gsap.timeline()
@@ -927,21 +1026,49 @@ export default function Hero() {
       <PageGrid>
         <StandingsPanel>
           <StandingsTitle>Final Standings</StandingsTitle>
-          {standings.map(team => (
-            <LeaderboardRow key={team.id} $rank={team.rank}>
-              <LeaderboardRank $rank={team.rank} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {rankIcon(team.rank)}
-              </LeaderboardRank>
-              {(team.imgLink || team.imgUrl) && (
-                <LeaderboardTeamImg
-                  src={team.imgLink || team.imgUrl}
-                  alt={team.name}
-                  onError={e => { e.target.src = '/question.jpg'; }}
-                />
-              )}
-              <LeaderboardTeamName $rank={team.rank}>{team.name}</LeaderboardTeamName>
-            </LeaderboardRow>
-          ))}
+          <StandingsScrollWrap>
+            {standings.map(team => (
+              <LeaderboardRow
+                key={team.id}
+                $rank={team.rank}
+                $active={selectedTeam?.id === team.id}
+                onClick={() => setSelectedTeam(prev => prev?.id === team.id ? null : team)}
+              >
+                <LeaderboardRank $rank={team.rank} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {rankIcon(team.rank)}
+                </LeaderboardRank>
+                {(team.imgLink || team.imgUrl) && (
+                  <LeaderboardTeamImg
+                    src={team.imgLink || team.imgUrl}
+                    alt={team.name}
+                    onError={e => { e.target.src = '/question.jpg'; }}
+                  />
+                )}
+                <LeaderboardTeamName $rank={team.rank}>{team.name}</LeaderboardTeamName>
+              </LeaderboardRow>
+            ))}
+          </StandingsScrollWrap>
+
+          {selectedTeam && (
+            <MembersPanel>
+              <MembersPanelTitle>{selectedTeam.name} — Members</MembersPanelTitle>
+              <MembersScrollWrap>
+                {(selectedTeam.members ?? []).map((memberName, i) => {
+                  const profile = memberProfiles[memberName];
+                  return (
+                    <MemberRow key={i}>
+                      <MemberAvatar
+                        src={profile?.imglink || '/question.jpg'}
+                        alt={memberName}
+                        onError={e => { e.target.src = '/question.jpg'; }}
+                      />
+                      <MemberName>{memberName}</MemberName>
+                    </MemberRow>
+                  );
+                })}
+              </MembersScrollWrap>
+            </MembersPanel>
+          )}
         </StandingsPanel>
 
         <BracketView
@@ -949,6 +1076,7 @@ export default function Hero() {
           tournamentName={tournamentName}
           format={format}
           readOnly
+          onMatchClick={handleMatchClick}
         />
       </PageGrid>
 

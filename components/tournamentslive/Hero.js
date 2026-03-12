@@ -11,7 +11,6 @@ import {
   generateSwissBracket,
   PickWinnerModal,
 } from "@/components/tournamentslive/tournament-systems";
-
 // ─── CSS keyframes ────────────────────────────────────────────────────────────
 
 const hexPulse = keyframes`
@@ -201,15 +200,22 @@ const DecoSVG = styled.svg`
 
 const CornerSVG = styled.svg`
   position: absolute;
-  width: 90px;
-  height: 90px;
+  width: clamp(55px, 8vw, 90px);
+  height: clamp(55px, 8vw, 90px);
   pointer-events: none;
   z-index: 4;
   opacity: 0;
-  ${p => p.$tl && css`top: 20px; left: 20px;`}
-  ${p => p.$tr && css`top: 20px; right: 20px; transform: scaleX(-1);`}
-  ${p => p.$bl && css`bottom: 20px; left: 20px; transform: scaleY(-1);`}
-  ${p => p.$br && css`bottom: 20px; right: 20px; transform: scale(-1);`}
+  ${p => p.$tl && css`top: 16px; left: 16px;`}
+  ${p => p.$tr && css`top: 16px; right: 16px; transform: scaleX(-1);`}
+  ${p => p.$bl && css`bottom: 16px; left: 16px; transform: scaleY(-1);`}
+  ${p => p.$br && css`bottom: 16px; right: 16px; transform: scale(-1);`}
+
+  @media (max-width: 480px) {
+    ${p => p.$tl && css`top: 10px; left: 10px;`}
+    ${p => p.$tr && css`top: 10px; right: 10px; transform: scaleX(-1);`}
+    ${p => p.$bl && css`bottom: 10px; left: 10px; transform: scaleY(-1);`}
+    ${p => p.$br && css`bottom: 10px; right: 10px; transform: scale(-1);`}
+  }
 `;
 
 const HRule = styled.div`
@@ -258,7 +264,7 @@ const VRule = styled.div`
 const BackBar = styled.div`
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 56px;
+  height: clamp(46px, 8vw, 56px);
   z-index: 20;
   display: flex;
   align-items: center;
@@ -271,14 +277,14 @@ const BackBtn = styled.button`
   position: relative;
   top: 3px;
   height: fit-content;
-  min-height: 46px;
-  width: clamp(160px, 22vw, 280px);
+  min-height: clamp(36px, 7vw, 46px);
+  width: clamp(120px, 20vw, 280px);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
   gap: 4px;
-  padding: 10px 32px;
+  padding: clamp(6px, 1.5vw, 10px) clamp(16px, 4vw, 32px);
 
   background: linear-gradient(180deg, #0b0c11 0%, #0e1018 60%, rgba(11,12,17,0.55) 100%);
   clip-path: polygon(22px 0%, calc(100% - 22px) 0%, 100% 50%, calc(100% - 22px) 100%, 22px 100%, 0% 50%);
@@ -323,7 +329,7 @@ const BackLabel = styled.span`
   position: relative;
   z-index: 2;
   font-family: 'Cinzel', serif;
-  font-size: clamp(0.62rem, 1.4vw, 0.85rem);
+  font-size: clamp(0.55rem, 1.4vw, 0.85rem);
   font-weight: 600;
   letter-spacing: clamp(0.1em, 0.4vw, 0.22em);
   text-transform: uppercase;
@@ -356,21 +362,31 @@ const BackUnderline = styled.div`
 
 const PhaseContainer = styled.div`
   position: absolute;
-  top: 80px;
+  top: clamp(58px, 10vw, 80px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 15;
   display: flex;
   align-items: center;
-  gap: clamp(20px, 4vw, 40px);
+  gap: clamp(6px, 2.5vw, 40px);
+  width: 100%;
+  justify-content: center;
+  padding: 0 12px;
+  box-sizing: border-box;
+
+  @media (max-width: 480px) {
+    top: 56px;
+    gap: 4px;
+  }
 `;
 
 const PhaseNavBtn = styled.button`
-  height: 40px;
-  width: 120px;
+  height: clamp(30px, 6vw, 40px);
+  width: clamp(72px, 16vw, 120px);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 
   background: linear-gradient(180deg, #0b0c11 0%, #0e1018 60%, rgba(11,12,17,0.55) 100%);
   clip-path: polygon(8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0% 50%);
@@ -383,9 +399,9 @@ const PhaseNavBtn = styled.button`
   position: relative;
 
   font-family: 'Cinzel', serif;
-  font-size: 0.75rem;
+  font-size: clamp(0.48rem, 1.3vw, 0.75rem);
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: clamp(0.04em, 0.2vw, 0.1em);
   text-transform: uppercase;
   color: rgba(200,170,110,0.7);
   transition: color 0.3s ease, text-shadow 0.3s ease;
@@ -423,22 +439,29 @@ const PhaseNavBtn = styled.button`
     cursor: not-allowed;
     &:hover { color: rgba(200,170,110,0.7); text-shadow: none; }
   }
+
+  @media (max-width: 400px) {
+    width: clamp(58px, 20vw, 80px);
+    font-size: 0.44rem;
+    letter-spacing: 0.02em;
+  }
 `;
 
 const PhaseTabsContainer = styled.div`
   display: flex;
-  gap: 12px;
+  gap: clamp(4px, 1.5vw, 12px);
   align-items: center;
+  flex-shrink: 0;
 `;
 
 const PhaseTab = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  min-width: 80px;
+  gap: clamp(3px, 1vw, 6px);
+  min-width: clamp(44px, 9vw, 80px);
   font-family: 'Cinzel', serif;
-  font-size: 0.7rem;
+  font-size: clamp(0.48rem, 1.1vw, 0.7rem);
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -446,8 +469,8 @@ const PhaseTab = styled.div`
 `;
 
 const PhaseTabCircle = styled.div`
-  width: 32px;
-  height: 32px;
+  width: clamp(22px, 4.5vw, 32px);
+  height: clamp(22px, 4.5vw, 32px);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -465,7 +488,7 @@ const PhaseTabCircle = styled.div`
 
   span {
     color: rgba(200,170,110,0.6);
-    font-size: 0.75rem;
+    font-size: clamp(0.55rem, 1.3vw, 0.75rem);
     font-weight: 700;
     transition: color 0.3s ease, text-shadow 0.3s ease;
   }
@@ -474,6 +497,10 @@ const PhaseTabCircle = styled.div`
 const PhaseTabLabel = styled.span`
   color: ${p => p.$active ? '#f0e6d2' : 'rgba(200,170,110,0.6)'};
   transition: color 0.3s ease;
+
+  @media (max-width: 400px) {
+    display: none;
+  }
 `;
 
 // ─── Phase content ────────────────────────────────────────────────────────────
@@ -481,21 +508,28 @@ const PhaseTabLabel = styled.span`
 const PhaseContentContainer = styled.div`
   position: relative;
   z-index: 10;
-  width: 90%;
+  width: 95%;
   max-width: 1200px;
-  margin-top: 140px;
-  padding: 40px;
+  margin-top: clamp(118px, 18vw, 160px);
+  padding: clamp(14px, 3.5vw, 40px);
+
+  @media (max-width: 600px) {
+    width: 100%;
+    padding: 10px;
+    margin-top: 118px;
+  }
 `;
 
 const TopActionRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: clamp(8px, 2vw, 16px);
+  flex-wrap: wrap;
 `;
 
 const AddTeamsBtn = styled.button`
-  height: 50px;
-  width: 160px;
+  height: clamp(38px, 7vw, 50px);
+  width: clamp(110px, 22vw, 160px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -508,9 +542,9 @@ const AddTeamsBtn = styled.button`
   overflow: hidden;
   position: relative;
   font-family: 'Cinzel', serif;
-  font-size: 0.85rem;
+  font-size: clamp(0.6rem, 1.5vw, 0.85rem);
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: clamp(0.06em, 0.3vw, 0.12em);
   text-transform: uppercase;
   color: rgba(200,170,110,0.8);
   transition: color 0.3s ease, text-shadow 0.3s ease;
@@ -548,9 +582,9 @@ const ParticipantsBtn = styled(AddTeamsBtn)``;
 
 const TeamsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 24px;
-  margin-top: 40px;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 28vw, 200px), 1fr));
+  gap: clamp(10px, 2.5vw, 24px);
+  margin-top: clamp(18px, 4vw, 40px);
 `;
 
 const TeamCard = styled.div`
@@ -609,7 +643,7 @@ const TeamCardScan = styled.div`
 const TeamCardImageWrapper = styled.div`
   position: relative;
   overflow: hidden;
-  height: 160px;
+  height: clamp(90px, 18vw, 160px);
   border-bottom: 1px solid rgba(200,170,110,0.15);
 
   &::after {
@@ -718,8 +752,8 @@ const DeleteConfirmBox = styled.div`
   background: linear-gradient(160deg, rgba(10,11,18,0.99) 0%, rgba(18,10,10,0.97) 100%);
   border: 1px solid rgba(200,80,80,0.35);
   clip-path: polygon(14px 0%, calc(100% - 14px) 0%, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0% calc(100% - 14px), 0% 14px);
-  width: clamp(280px, 80vw, 380px);
-  padding: 28px 24px 22px;
+  width: clamp(260px, 88vw, 380px);
+  padding: clamp(18px, 4vw, 28px) clamp(14px, 3vw, 24px) clamp(14px, 3vw, 22px);
   animation: ${modalSlideIn} 0.25s cubic-bezier(0.22,1,0.36,1) forwards;
 
   &::before {
@@ -736,7 +770,7 @@ const DeleteConfirmTitle = styled.h2`
   position: relative;
   z-index: 1;
   font-family: 'Cinzel', serif;
-  font-size: 0.65rem;
+  font-size: clamp(0.55rem, 1.4vw, 0.65rem);
   font-weight: 700;
   letter-spacing: 0.4em;
   text-transform: uppercase;
@@ -749,7 +783,7 @@ const DeleteConfirmText = styled.p`
   position: relative;
   z-index: 1;
   font-family: 'Cinzel', serif;
-  font-size: 0.55rem;
+  font-size: clamp(0.48rem, 1.2vw, 0.55rem);
   letter-spacing: 0.15em;
   color: rgba(200,170,110,0.55);
   text-align: center;
@@ -766,17 +800,17 @@ const DeleteConfirmButtons = styled.div`
 `;
 
 const TeamCardContent = styled.div`
-  padding: 16px;
+  padding: clamp(8px, 2vw, 16px);
   position: relative;
   z-index: 3;
 `;
 
 const TeamCardName = styled.div`
   font-family: 'Cinzel', serif;
-  font-size: 0.92rem;
+  font-size: clamp(0.72rem, 1.8vw, 0.92rem);
   font-weight: 600;
   color: #f0e6d2;
-  margin-bottom: 12px;
+  margin-bottom: clamp(6px, 1.5vw, 12px);
   text-align: center;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -802,7 +836,7 @@ const TeamCardMembers = styled.div`
 const MemberItem = styled.div`
   display: flex;
   align-items: center;
-  font-size: 0.75rem;
+  font-size: clamp(0.6rem, 1.4vw, 0.75rem);
   color: rgba(200,170,110,0.8);
   padding: 4px 0;
   border-bottom: 1px solid rgba(200,170,110,0.05);
@@ -845,14 +879,14 @@ const TeamCardButtonGroup = styled.div`
 const TeamCardBtn = styled.button`
   flex: 1;
   font-family: 'Cinzel', serif;
-  font-size: 0.52rem;
+  font-size: clamp(0.44rem, 1.1vw, 0.52rem);
   font-weight: 600;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: rgba(200,170,110,0.85);
   background: transparent;
   border: 1px solid rgba(200,170,110,0.3);
-  padding: 8px 12px;
+  padding: clamp(5px, 1.2vw, 8px) 12px;
   clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
   cursor: pointer;
   position: relative;
@@ -888,6 +922,8 @@ const ModalBackdrop = styled.div`
   align-items: center;
   justify-content: center;
   animation: ${modalBackdropIn} 0.25s ease forwards;
+  padding: 16px;
+  box-sizing: border-box;
 `;
 
 // ─── Modal — Add Teams ────────────────────────────────────────────────────────
@@ -897,8 +933,8 @@ const ModalBox = styled.div`
   background: linear-gradient(160deg, rgba(10,11,18,0.99) 0%, rgba(14,15,24,0.97) 100%);
   border: 1px solid rgba(200,170,110,0.3);
   clip-path: polygon(18px 0%, calc(100% - 18px) 0%, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0% calc(100% - 18px), 0% 18px);
-  width: clamp(300px, 90vw, 440px);
-  padding: 32px 28px 26px;
+  width: clamp(280px, 92vw, 440px);
+  padding: clamp(20px, 5vw, 32px) clamp(16px, 4vw, 28px) clamp(16px, 4vw, 26px);
   animation: ${modalSlideIn} 0.3s cubic-bezier(0.22,1,0.36,1) forwards;
 
   &::before {
@@ -925,7 +961,7 @@ const ModalTitle = styled.h2`
   position: relative;
   z-index: 1;
   font-family: 'Cinzel', serif;
-  font-size: 0.7rem;
+  font-size: clamp(0.58rem, 1.4vw, 0.7rem);
   font-weight: 700;
   letter-spacing: 0.45em;
   text-transform: uppercase;
@@ -952,7 +988,7 @@ const ModalField = styled.div`
 const ModalLabel = styled.label`
   display: block;
   font-family: 'Cinzel', serif;
-  font-size: 0.46rem;
+  font-size: clamp(0.38rem, 1vw, 0.46rem);
   letter-spacing: 0.4em;
   text-transform: uppercase;
   color: rgba(200,170,110,0.5);
@@ -965,7 +1001,7 @@ const ModalInput = styled.input`
   border: 1px solid rgba(200,170,110,0.22);
   color: #f0e6d2;
   font-family: 'Cinzel', serif;
-  font-size: 0.72rem;
+  font-size: clamp(0.6rem, 1.4vw, 0.72rem);
   letter-spacing: 0.15em;
   padding: 10px 14px;
   outline: none;
@@ -992,15 +1028,16 @@ const ModalFooter = styled.div`
   justify-content: flex-end;
   gap: 10px;
   margin-top: 22px;
+  flex-wrap: wrap;
 `;
 
 const ModalBtn = styled.button`
   font-family: 'Cinzel', serif;
-  font-size: 0.55rem;
+  font-size: clamp(0.46rem, 1.1vw, 0.55rem);
   font-weight: 700;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  padding: 9px 22px;
+  padding: clamp(7px, 1.5vw, 9px) clamp(14px, 3.5vw, 22px);
   clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
   cursor: pointer;
   border: 1px solid ${p => p.$primary ? "rgba(200,170,110,0.6)" : "rgba(200,170,110,0.2)"};
@@ -1021,7 +1058,7 @@ const ModalBtn = styled.button`
 const MemberCheckboxContainer = styled.div`
   position: relative;
   z-index: 1;
-  max-height: 240px;
+  max-height: clamp(160px, 35vh, 240px);
   overflow-y: auto;
   margin: 0 0 4px;
   border: 1px solid rgba(200,170,110,0.12);
@@ -1061,7 +1098,7 @@ const MemberCheckbox = styled.div`
 
 const MemberName = styled.span`
   font-family: 'Cinzel', serif;
-  font-size: 0.6rem;
+  font-size: clamp(0.5rem, 1.2vw, 0.6rem);
   letter-spacing: 0.15em;
   color: ${p => p.$checked ? "#f0e6d2" : "rgba(200,170,110,0.55)"};
   text-transform: uppercase;
@@ -1091,9 +1128,15 @@ const SplitModalBox = styled.div`
   background: linear-gradient(160deg, rgba(10,11,18,0.99) 0%, rgba(14,15,24,0.97) 100%);
   border: 1px solid rgba(200,170,110,0.3);
   clip-path: polygon(18px 0%, calc(100% - 18px) 0%, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0% calc(100% - 18px), 0% 18px);
-  width: clamp(340px, 90vw, 820px);
-  padding: 32px 28px 26px;
+  width: clamp(300px, 96vw, 820px);
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: clamp(16px, 4vw, 32px) clamp(12px, 3vw, 28px) clamp(14px, 3vw, 26px);
   animation: ${modalSlideIn} 0.3s cubic-bezier(0.22,1,0.36,1) forwards;
+
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar { display: none; }
 
   &::before {
     content: '';
@@ -1111,11 +1154,22 @@ const SplitBody = styled.div`
   gap: 0 20px;
   position: relative;
   z-index: 1;
+
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+    gap: 20px 0;
+  }
 `;
 
 const SplitDivider = styled.div`
   background: linear-gradient(180deg, transparent, rgba(200,170,110,0.25) 30%, rgba(200,170,110,0.25) 70%, transparent);
   width: 1px;
+
+  @media (max-width: 560px) {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(200,170,110,0.25) 30%, rgba(200,170,110,0.25) 70%, transparent);
+  }
 `;
 
 const SplitPanel = styled.div`
@@ -1127,7 +1181,7 @@ const SplitPanel = styled.div`
 
 const SplitPanelTitle = styled.div`
   font-family: 'Cinzel', serif;
-  font-size: 0.5rem;
+  font-size: clamp(0.42rem, 1vw, 0.5rem);
   letter-spacing: 0.4em;
   text-transform: uppercase;
   color: rgba(200,170,110,0.6);
@@ -1142,7 +1196,7 @@ const SplitSearchInput = styled.input`
   border: 1px solid rgba(200,170,110,0.18);
   color: #f0e6d2;
   font-family: 'Cinzel', serif;
-  font-size: 0.6rem;
+  font-size: clamp(0.52rem, 1.2vw, 0.6rem);
   letter-spacing: 0.12em;
   padding: 7px 12px;
   outline: none;
@@ -1158,7 +1212,7 @@ const SplitSearchInput = styled.input`
 `;
 
 const SplitList = styled.div`
-  height: 280px;
+  height: clamp(160px, 32vh, 280px);
   overflow-y: auto;
   border: 1px solid rgba(200,170,110,0.1);
   background: rgba(200,170,110,0.025);
@@ -1191,7 +1245,7 @@ const SplitAvatar = styled.img`
 
 const SplitName = styled.span`
   font-family: 'Cinzel', serif;
-  font-size: 0.58rem;
+  font-size: clamp(0.5rem, 1.1vw, 0.58rem);
   letter-spacing: 0.1em;
   color: rgba(200,170,110,0.8);
   flex: 1;
@@ -1265,8 +1319,8 @@ const RevealParticleCanvas = styled.canvas`
 
 const RevealRingOuter = styled.div`
   position: absolute;
-  width: 520px;
-  height: 520px;
+  width: clamp(260px, 55vw, 520px);
+  height: clamp(260px, 55vw, 520px);
   border-radius: 50%;
   border: 1px solid rgba(200,170,110,0.1);
   opacity: 0;
@@ -1278,8 +1332,8 @@ const RevealRingOuter = styled.div`
 
 const RevealRingMid = styled.div`
   position: absolute;
-  width: 360px;
-  height: 360px;
+  width: clamp(180px, 38vw, 360px);
+  height: clamp(180px, 38vw, 360px);
   border-radius: 50%;
   border: 1px solid rgba(200,170,110,0.14);
   opacity: 0;
@@ -1288,8 +1342,8 @@ const RevealRingMid = styled.div`
 
 const RevealRingInner = styled.div`
   position: absolute;
-  width: 240px;
-  height: 240px;
+  width: clamp(120px, 25vw, 240px);
+  height: clamp(120px, 25vw, 240px);
   border-radius: 50%;
   border: 1px solid rgba(200,170,110,0.22);
   opacity: 0;
@@ -1299,7 +1353,7 @@ const RevealRingInner = styled.div`
 const RevealRuneOnRing = styled.span`
   position: absolute;
   font-family: serif;
-  font-size: 0.75rem;
+  font-size: clamp(0.55rem, 1.2vw, 0.75rem);
   color: rgba(200,170,110,0.5);
   pointer-events: none;
   user-select: none;
@@ -1309,8 +1363,8 @@ const RevealRuneOnRing = styled.span`
 
 const RevealCardScene = styled.div`
   position: relative;
-  width: 260px;
-  height: 330px;
+  width: clamp(180px, 46vw, 260px);
+  height: clamp(228px, 58vw, 330px);
   perspective: 900px;
   opacity: 0;
   overflow: visible;
@@ -1370,8 +1424,8 @@ const BackCircuitSvg = styled.svg`
 
 const BackCenterOrb = styled.div`
   position: absolute;
-  width: 90px;
-  height: 90px;
+  width: clamp(60px, 14vw, 90px);
+  height: clamp(60px, 14vw, 90px);
   border-radius: 50%;
   background: radial-gradient(circle, rgba(200,170,110,0.22) 0%, rgba(200,170,110,0.06) 50%, transparent 75%);
   animation: ${orbPulse} 2.4s ease-in-out infinite;
@@ -1381,7 +1435,7 @@ const BackCenterOrb = styled.div`
 const BackQuestion = styled.div`
   position: relative;
   font-family: 'Cinzel', serif;
-  font-size: 4.2rem;
+  font-size: clamp(2.8rem, 8vw, 4.2rem);
   font-weight: 900;
   color: rgba(200,170,110,0.88);
   animation: ${questionFlicker} 3.1s ease-in-out infinite;
@@ -1393,11 +1447,11 @@ const BackQuestion = styled.div`
 
 const RevealLabel = styled.div`
   position: absolute;
-  bottom: 28px;
+  bottom: clamp(14px, 3vw, 28px);
   left: 0; right: 0;
   text-align: center;
   font-family: 'Cinzel', serif;
-  font-size: 0.38rem;
+  font-size: clamp(0.3rem, 0.7vw, 0.38rem);
   letter-spacing: 0.65em;
   text-transform: uppercase;
   color: rgba(200,170,110,0.35);
@@ -1406,11 +1460,11 @@ const RevealLabel = styled.div`
 
 const BackTopLabel = styled.div`
   position: absolute;
-  top: 22px;
+  top: clamp(12px, 2.5vw, 22px);
   left: 0; right: 0;
   text-align: center;
   font-family: 'Cinzel', serif;
-  font-size: 0.38rem;
+  font-size: clamp(0.3rem, 0.7vw, 0.38rem);
   letter-spacing: 0.65em;
   text-transform: uppercase;
   color: rgba(200,170,110,0.35);
@@ -1428,8 +1482,8 @@ const BackGlowLine = styled.div`
 
 const BackCornerGem = styled.div`
   position: absolute;
-  width: 8px;
-  height: 8px;
+  width: clamp(5px, 1.2vw, 8px);
+  height: clamp(5px, 1.2vw, 8px);
   background: rgba(200,170,110,0.55);
   clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
   animation: ${hexBackGlow} 2s ease-in-out infinite;
@@ -1481,7 +1535,7 @@ const RevealCardTopLine = styled.div`
 const RevealCardImageWrap = styled.div`
   position: relative;
   width: 100%;
-  height: 270px;
+  height: clamp(160px, 42vw, 270px);
   overflow: hidden;
   flex-shrink: 0;
 
@@ -1505,7 +1559,7 @@ const RevealCardImage = styled.img`
 `;
 
 const RevealCardContent = styled.div`
-  padding: 8px 16px 10px;
+  padding: clamp(4px, 1.2vw, 8px) clamp(8px, 2.5vw, 16px) clamp(6px, 1.5vw, 10px);
   position: relative;
   z-index: 3;
   display: flex;
@@ -1518,7 +1572,7 @@ const RevealCardContent = styled.div`
 
 const RevealCardLabel = styled.div`
   font-family: 'Cinzel', serif;
-  font-size: 0.4rem;
+  font-size: clamp(0.3rem, 0.7vw, 0.4rem);
   letter-spacing: 0.55em;
   text-transform: uppercase;
   color: rgba(200,170,110,0.4);
@@ -1538,7 +1592,7 @@ const RevealCardDivider = styled.div`
 
 const RevealCardName = styled.div`
   font-family: 'Cinzel', serif;
-  font-size: 1.0rem;
+  font-size: clamp(0.7rem, 2.5vw, 1.0rem);
   font-weight: 700;
   letter-spacing: 0.25em;
   text-transform: uppercase;
@@ -1553,18 +1607,18 @@ const RevealCardName = styled.div`
 
 const RevealDismissBtn = styled.button`
   position: absolute;
-  bottom: -58px;
+  bottom: clamp(-68px, -13vw, -58px);
   left: 50%;
   transform: translateX(-50%);
   font-family: 'Cinzel', serif;
-  font-size: 0.48rem;
+  font-size: clamp(0.36rem, 1vw, 0.48rem);
   font-weight: 700;
-  letter-spacing: 0.45em;
+  letter-spacing: 0.35em;
   text-transform: uppercase;
   color: rgba(200,170,110,0.5);
   background: transparent;
   border: 1px solid rgba(200,170,110,0.2);
-  padding: 9px 28px;
+  padding: clamp(6px, 1.5vw, 9px) clamp(14px, 4vw, 28px);
   clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
   cursor: pointer;
   opacity: 0;
@@ -1581,18 +1635,18 @@ const RevealDismissBtn = styled.button`
 
 const RevealAddBtn = styled.button`
   position: absolute;
-  bottom: -100px;
+  bottom: clamp(-118px, -22vw, -100px);
   left: 50%;
   transform: translateX(-50%);
   font-family: 'Cinzel', serif;
-  font-size: 0.48rem;
+  font-size: clamp(0.36rem, 1vw, 0.48rem);
   font-weight: 700;
-  letter-spacing: 0.45em;
+  letter-spacing: 0.35em;
   text-transform: uppercase;
   color: #f0e6d2;
   background: rgba(200,170,110,0.12);
   border: 1px solid rgba(200,170,110,0.55);
-  padding: 9px 28px;
+  padding: clamp(6px, 1.5vw, 9px) clamp(14px, 4vw, 28px);
   clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
   cursor: pointer;
   opacity: 0;
@@ -1621,6 +1675,404 @@ const RevealShimmerFlash = styled.div`
   transform: translateX(-120%) skewX(-12deg);
   pointer-events: none;
   z-index: 600;
+`;
+
+// ─── Results Styled Components ────────────────────────────────────────────────
+
+const ResultsGrid = styled.div`
+  display: grid;
+  grid-template-columns: clamp(220px, 28vw, 340px) 1fr;
+  gap: clamp(14px, 3vw, 28px);
+  align-items: start;
+
+  @media (max-width: 760px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const ResultsPanel = styled.div`
+  background: linear-gradient(160deg, rgba(10,11,18,0.97) 0%, rgba(14,15,24,0.95) 100%);
+  border: 1px solid rgba(200,170,110,0.2);
+  clip-path: polygon(12px 0%, calc(100% - 12px) 0%, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0% calc(100% - 12px), 0% 12px);
+  padding: clamp(14px, 3vw, 28px) clamp(12px, 2.5vw, 24px);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(60deg, rgba(200,170,110,0.01) 0, transparent 1px, transparent 18px);
+    pointer-events: none;
+  }
+`;
+
+const ResultsPanelTitle = styled.div`
+  font-family: 'Cinzel', serif;
+  font-size: clamp(0.42rem, 1vw, 0.5rem);
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  color: rgba(200,170,110,0.55);
+  text-align: center;
+  margin-bottom: clamp(12px, 3vw, 20px);
+  padding-bottom: clamp(8px, 2vw, 14px);
+  border-bottom: 1px solid rgba(200,170,110,0.12);
+  position: relative;
+  z-index: 1;
+`;
+
+const LeaderboardRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 2vw, 12px);
+  padding: clamp(7px, 1.5vw, 10px) clamp(8px, 2vw, 12px);
+  margin-bottom: clamp(4px, 1vw, 8px);
+  background: ${p => p.$rank === 1
+    ? 'rgba(200,170,110,0.1)'
+    : p.$rank === 2
+      ? 'rgba(180,180,200,0.06)'
+      : p.$rank === 3
+        ? 'rgba(180,120,60,0.07)'
+        : 'rgba(200,170,110,0.025)'};
+  border: 1px solid ${p => p.$rank === 1
+    ? 'rgba(200,170,110,0.4)'
+    : p.$rank === 2
+      ? 'rgba(180,180,200,0.2)'
+      : p.$rank === 3
+        ? 'rgba(180,120,60,0.25)'
+        : 'rgba(200,170,110,0.1)'};
+  clip-path: polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0% calc(100% - 6px), 0% 6px);
+  position: relative;
+  z-index: 1;
+  transition: border-color 0.25s ease;
+`;
+
+const LeaderboardRank = styled.div`
+  font-family: 'Cinzel', serif;
+  font-size: ${p => p.$rank <= 3 ? '1.1rem' : '0.65rem'};
+  font-weight: 700;
+  min-width: 28px;
+  text-align: center;
+  color: ${p => p.$rank === 1
+    ? '#f0e6d2'
+    : p.$rank === 2
+      ? 'rgba(200,210,230,0.85)'
+      : p.$rank === 3
+        ? 'rgba(200,140,80,0.9)'
+        : 'rgba(200,170,110,0.35)'};
+  text-shadow: ${p => p.$rank === 1 ? '0 0 18px rgba(200,170,110,0.7)' : 'none'};
+  flex-shrink: 0;
+`;
+
+const LeaderboardTeamImg = styled.img`
+  width: clamp(24px, 5vw, 34px);
+  height: clamp(24px, 5vw, 34px);
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(200,170,110,0.25);
+  flex-shrink: 0;
+`;
+
+const LeaderboardTeamName = styled.div`
+  font-family: 'Cinzel', serif;
+  font-size: clamp(0.5rem, 1.2vw, 0.62rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: ${p => p.$rank === 1 ? '#f0e6d2' : 'rgba(200,170,110,0.75)'};
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  text-shadow: ${p => p.$rank === 1 ? '0 0 12px rgba(200,170,110,0.4)' : 'none'};
+`;
+
+const MatchHistoryList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: clamp(280px, 52vh, 72vh);
+  overflow-y: auto;
+  padding-right: 4px;
+  position: relative;
+  z-index: 1;
+
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200,170,110,0.2) transparent;
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: rgba(200,170,110,0.2); border-radius: 2px; }
+`;
+
+const MatchHistoryCard = styled.div`
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 1.5vw, 14px);
+  padding: clamp(8px, 1.8vw, 14px) clamp(8px, 2vw, 16px);
+  background: rgba(200,170,110,0.03);
+  border: 1px solid rgba(200,170,110,0.13);
+  clip-path: polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0% calc(100% - 8px), 0% 8px);
+  transition: border-color 0.25s ease, background 0.25s ease;
+  position: relative;
+  flex-wrap: wrap;
+
+  @media (max-width: 500px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  &:hover {
+    border-color: rgba(200,170,110,0.28);
+    background: rgba(200,170,110,0.055);
+  }
+`;
+
+const MatchTeamsDisplay = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+
+  @media (max-width: 500px) {
+    width: 100%;
+    justify-content: center;
+  }
+`;
+
+const MatchTeamBlock = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  width: clamp(70px, 17vw, 110px);
+
+  @media (max-width: 500px) {
+    width: clamp(80px, 35vw, 120px);
+  }
+`;
+
+const MatchTeamBlockName = styled.span`
+  font-family: 'Cinzel', serif;
+  font-size: clamp(0.44rem, 1vw, 0.52rem);
+  letter-spacing: 0.06em;
+  color: ${p => p.$winner ? '#f0e6d2' : 'rgba(200,170,110,0.45)'};
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  font-weight: ${p => p.$winner ? '700' : '400'};
+  text-shadow: ${p => p.$winner ? '0 0 10px rgba(200,170,110,0.5)' : 'none'};
+`;
+
+const MatchTeamThumb = styled.img`
+  width: clamp(22px, 4.5vw, 28px);
+  height: clamp(22px, 4.5vw, 28px);
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid ${p => p.$winner ? 'rgba(200,170,110,0.6)' : 'rgba(200,170,110,0.15)'};
+  flex-shrink: 0;
+  opacity: ${p => p.$winner === false ? 0.4 : 1};
+  filter: ${p => p.$winner === false ? 'grayscale(0.5)' : 'none'};
+`;
+
+const MatchVsSeparator = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  width: clamp(24px, 5vw, 36px);
+`;
+
+const MatchVsText = styled.div`
+  font-family: 'Cinzel', serif;
+  font-size: clamp(0.35rem, 0.8vw, 0.42rem);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: rgba(200,170,110,0.5);
+  text-transform: uppercase;
+`;
+
+const MatchVsLine = styled.div`
+  width: 1px;
+  height: 10px;
+  background: rgba(200,170,110,0.2);
+`;
+
+const MatchVideoInput = styled.input`
+  flex: 1;
+  min-width: clamp(80px, 14vw, 120px);
+  background: rgba(200,170,110,0.04);
+  border: 1px solid rgba(200,170,110,0.15);
+  color: #f0e6d2;
+  font-family: 'Cinzel', serif;
+  font-size: clamp(0.44rem, 1vw, 0.52rem);
+  letter-spacing: 0.08em;
+  padding: clamp(5px, 1.2vw, 8px) clamp(8px, 1.8vw, 12px);
+  outline: none;
+  clip-path: polygon(5px 0%, calc(100% - 5px) 0%, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0% calc(100% - 5px), 0% 5px);
+  transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+  box-sizing: border-box;
+
+  &::placeholder { color: rgba(200,170,110,0.22); font-style: italic; }
+  &:focus {
+    border-color: rgba(200,170,110,0.45);
+    background: rgba(200,170,110,0.08);
+    box-shadow: 0 0 12px rgba(200,170,110,0.08);
+  }
+
+  @media (max-width: 500px) {
+    width: 100%;
+    flex: unset;
+  }
+`;
+
+const MatchRoundBadge = styled.div`
+  font-family: 'Cinzel', serif;
+  font-size: clamp(0.3rem, 0.7vw, 0.36rem);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(200,170,110,0.3);
+  white-space: nowrap;
+  flex-shrink: 0;
+  writing-mode: vertical-lr;
+  transform: rotate(180deg);
+  padding: 4px 0;
+
+  @media (max-width: 500px) {
+    writing-mode: horizontal-tb;
+    transform: none;
+    text-align: right;
+  }
+`;
+
+const EmptyResultsHint = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  font-family: 'Cinzel', serif;
+  font-size: clamp(0.42rem, 1vw, 0.5rem);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: rgba(200,170,110,0.25);
+  text-align: center;
+  line-height: 2;
+`;
+
+const FinalizeBtn = styled.button`
+  font-family: 'Cinzel', serif;
+  font-size: clamp(0.48rem, 1.3vw, 0.62rem);
+  font-weight: 700;
+  letter-spacing: clamp(0.15em, 0.5vw, 0.35em);
+  text-transform: uppercase;
+  padding: clamp(10px, 2.5vw, 14px) clamp(22px, 6vw, 48px);
+  margin-top: clamp(20px, 5vw, 40px);
+  clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
+  cursor: pointer;
+  border: 1px solid rgba(200,170,110,0.5);
+  background: rgba(200,170,110,0.08);
+  color: rgba(200,170,110,0.9);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  align-self: center;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(200,170,110,0.08), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.5s ease;
+  }
+
+  &:hover {
+    border-color: rgba(200,170,110,0.9);
+    color: #f0e6d2;
+    background: rgba(200,170,110,0.14);
+    box-shadow: 0 0 28px rgba(200,170,110,0.18), inset 0 0 16px rgba(200,170,110,0.06);
+    &::before { transform: translateX(100%); }
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  &:active { transform: scale(0.97); }
+`;
+
+const FinalizeStatus = styled.p`
+  font-family: 'Cinzel', serif;
+  font-size: clamp(0.4rem, 1vw, 0.48rem);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: ${p => p.$error ? "rgba(220,100,80,0.85)" : "rgba(100,200,120,0.85)"};
+  text-align: center;
+  margin-top: 10px;
+`;
+
+// ─── Edit Team Modal ──────────────────────────────────────────────────────────
+
+const EditModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(2,3,6,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(6px);
+  animation: ${modalBackdropIn} 0.25s ease forwards;
+  padding: 16px;
+  box-sizing: border-box;
+`;
+
+const EditModalBox = styled.div`
+  position: relative;
+  width: clamp(280px, 92vw, 460px);
+  padding: clamp(20px, 5vw, 36px) clamp(14px, 4vw, 30px) clamp(16px, 4vw, 28px);
+  background: linear-gradient(160deg, rgba(10,11,18,0.99) 0%, rgba(14,15,24,0.97) 100%);
+  border: 1px solid rgba(200,170,110,0.3);
+  clip-path: polygon(18px 0%, calc(100% - 18px) 0%, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0% calc(100% - 18px), 0% 18px);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  z-index: 1001;
+  box-shadow: 0 0 60px rgba(200,170,110,0.12), 0 20px 60px rgba(0,0,0,0.7);
+  animation: ${modalSlideIn} 0.3s cubic-bezier(0.22,1,0.36,1) forwards;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(60deg, rgba(200,170,110,0.012) 0, transparent 1px, transparent 18px);
+    pointer-events: none;
+    z-index: 0;
+  }
+`;
+
+const EditInputGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  position: relative;
+  z-index: 1;
+  margin-bottom: 14px;
+`;
+
+const EditButtonGroup = styled.div`
+  display: flex;
+  gap: 10px;
+  position: relative;
+  z-index: 1;
+  justify-content: flex-end;
+  margin-top: 22px;
+  flex-wrap: wrap;
 `;
 
 const RUNE_CHARS = ["ᚠ","ᚢ","ᚦ","ᚨ","ᚱ","ᚲ","ᚷ","ᚹ","ᚺ","ᚾ","ᛁ","ᛃ","ᛇ","ᛈ","ᛉ","ᛊ","ᛏ","ᛒ","ᛖ","ᛗ"];
@@ -1941,61 +2393,7 @@ function RandomRevealOverlay({ member, imgSrc, onDismiss, onConfirm }) {
   );
 }
 
-// ─── Edit Team Modal ──────────────────────────────────────────────────────────
 
-const EditModalOverlay = styled.div`
-  position: fixed;
-  inset: 0;
-  background: rgba(2,3,6,0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(6px);
-  animation: ${modalBackdropIn} 0.25s ease forwards;
-`;
-
-const EditModalBox = styled.div`
-  position: relative;
-  width: clamp(300px, 90vw, 460px);
-  padding: 36px 30px 28px;
-  background: linear-gradient(160deg, rgba(10,11,18,0.99) 0%, rgba(14,15,24,0.97) 100%);
-  border: 1px solid rgba(200,170,110,0.3);
-  clip-path: polygon(18px 0%, calc(100% - 18px) 0%, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0% calc(100% - 18px), 0% 18px);
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  z-index: 1001;
-  box-shadow: 0 0 60px rgba(200,170,110,0.12), 0 20px 60px rgba(0,0,0,0.7);
-  animation: ${modalSlideIn} 0.3s cubic-bezier(0.22,1,0.36,1) forwards;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(60deg, rgba(200,170,110,0.012) 0, transparent 1px, transparent 18px);
-    pointer-events: none;
-    z-index: 0;
-  }
-`;
-
-const EditInputGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  position: relative;
-  z-index: 1;
-  margin-bottom: 14px;
-`;
-
-const EditButtonGroup = styled.div`
-  display: flex;
-  gap: 10px;
-  position: relative;
-  z-index: 1;
-  justify-content: flex-end;
-  margin-top: 22px;
-`;
 
 function CardCorner({ style }) {
   return (
@@ -2010,14 +2408,14 @@ function CardCorner({ style }) {
 function EditTeamModalComponent({ team, onClose, onSave }) {
   const [teamName, setTeamName] = useState(team?.name || "");
   const [imgLink, setImgLink]   = useState(team?.imgLink || "");
+  const [nameError, setNameError] = useState("");
 
   useEffect(() => {
-    if (team) { setTeamName(team.name); setImgLink(team.imgLink); }
+    if (team) { setTeamName(team.name); setImgLink(team.imgLink || ""); }
   }, [team]);
 
-  const handleSave = () => { if (teamName.trim()) onSave(team.id, teamName, imgLink); };
+  const handleSave = () => { if (teamName.trim()) onSave(team.id, teamName, imgLink, setNameError); };
   const handleKeyDown = (e) => { if (e.key === "Enter") handleSave(); else if (e.key === "Escape") onClose(); };
-
   return (
     <EditModalOverlay onClick={onClose}>
       <EditModalBox onClick={e => e.stopPropagation()}>
@@ -2030,7 +2428,8 @@ function EditTeamModalComponent({ team, onClose, onSave }) {
         <ModalDivider />
         <EditInputGroup>
           <ModalLabel>Team Name</ModalLabel>
-          <ModalInput type="text" placeholder="Enter team name..." value={teamName} onChange={e => setTeamName(e.target.value)} onKeyDown={handleKeyDown} autoFocus />
+          <ModalInput type="text" placeholder="Enter team name..." value={teamName} onChange={e => { setTeamName(e.target.value); setNameError(""); }} onKeyDown={handleKeyDown} autoFocus />
+          {nameError && <div style={{ fontFamily: "'Cinzel', serif", fontSize: "0.42rem", letterSpacing: "0.2em", color: "rgba(220,80,80,0.9)", marginTop: "5px", textTransform: "uppercase" }}>{nameError}</div>}
         </EditInputGroup>
         <EditInputGroup>
           <ModalLabel>Team Image URL</ModalLabel>
@@ -2155,318 +2554,6 @@ function BgDecoSVG({ ringRefs }) {
     </DecoSVG>
   );
 }
-
-// ─── Results Styled Components ────────────────────────────────────────────────
-
-const ResultsGrid = styled.div`
-  display: grid;
-  grid-template-columns: 340px 1fr;
-  gap: 28px;
-  align-items: start;
-
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const ResultsPanel = styled.div`
-  background: linear-gradient(160deg, rgba(10,11,18,0.97) 0%, rgba(14,15,24,0.95) 100%);
-  border: 1px solid rgba(200,170,110,0.2);
-  clip-path: polygon(12px 0%, calc(100% - 12px) 0%, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0% calc(100% - 12px), 0% 12px);
-  padding: 28px 24px;
-  position: relative;
-  overflow: hidden;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(60deg, rgba(200,170,110,0.01) 0, transparent 1px, transparent 18px);
-    pointer-events: none;
-  }
-`;
-
-const ResultsPanelTitle = styled.div`
-  font-family: 'Cinzel', serif;
-  font-size: 0.5rem;
-  letter-spacing: 0.5em;
-  text-transform: uppercase;
-  color: rgba(200,170,110,0.55);
-  text-align: center;
-  margin-bottom: 20px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid rgba(200,170,110,0.12);
-  position: relative;
-  z-index: 1;
-`;
-
-const LeaderboardRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-  background: ${p => p.$rank === 1
-    ? 'rgba(200,170,110,0.1)'
-    : p.$rank === 2
-      ? 'rgba(180,180,200,0.06)'
-      : p.$rank === 3
-        ? 'rgba(180,120,60,0.07)'
-        : 'rgba(200,170,110,0.025)'};
-  border: 1px solid ${p => p.$rank === 1
-    ? 'rgba(200,170,110,0.4)'
-    : p.$rank === 2
-      ? 'rgba(180,180,200,0.2)'
-      : p.$rank === 3
-        ? 'rgba(180,120,60,0.25)'
-        : 'rgba(200,170,110,0.1)'};
-  clip-path: polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0% calc(100% - 6px), 0% 6px);
-  position: relative;
-  z-index: 1;
-  transition: border-color 0.25s ease;
-`;
-
-const LeaderboardRank = styled.div`
-  font-family: 'Cinzel', serif;
-  font-size: ${p => p.$rank <= 3 ? '1.1rem' : '0.65rem'};
-  font-weight: 700;
-  min-width: 28px;
-  text-align: center;
-  color: ${p => p.$rank === 1
-    ? '#f0e6d2'
-    : p.$rank === 2
-      ? 'rgba(200,210,230,0.85)'
-      : p.$rank === 3
-        ? 'rgba(200,140,80,0.9)'
-        : 'rgba(200,170,110,0.35)'};
-  text-shadow: ${p => p.$rank === 1 ? '0 0 18px rgba(200,170,110,0.7)' : 'none'};
-  flex-shrink: 0;
-`;
-
-const LeaderboardTeamImg = styled.img`
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid rgba(200,170,110,0.25);
-  flex-shrink: 0;
-`;
-
-const LeaderboardTeamName = styled.div`
-  font-family: 'Cinzel', serif;
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  color: ${p => p.$rank === 1 ? '#f0e6d2' : 'rgba(200,170,110,0.75)'};
-  text-transform: uppercase;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  text-shadow: ${p => p.$rank === 1 ? '0 0 12px rgba(200,170,110,0.4)' : 'none'};
-`;
-
-const MatchHistoryList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 72vh;
-  overflow-y: auto;
-  padding-right: 4px;
-  position: relative;
-  z-index: 1;
-
-  scrollbar-width: thin;
-  scrollbar-color: rgba(200,170,110,0.2) transparent;
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: rgba(200,170,110,0.2); border-radius: 2px; }
-`;
-
-const MatchHistoryCard = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  background: rgba(200,170,110,0.03);
-  border: 1px solid rgba(200,170,110,0.13);
-  clip-path: polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0% calc(100% - 8px), 0% 8px);
-  transition: border-color 0.25s ease, background 0.25s ease;
-  position: relative;
-
-  &:hover {
-    border-color: rgba(200,170,110,0.28);
-    background: rgba(200,170,110,0.055);
-  }
-`;
-
-const MatchTeamsDisplay = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0;
-  flex-shrink: 0;
-`;
-
-const MatchTeamBlock = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-  width: 110px;
-`;
-
-const MatchTeamBlockName = styled.span`
-  font-family: 'Cinzel', serif;
-  font-size: 0.52rem;
-  letter-spacing: 0.06em;
-  color: ${p => p.$winner ? '#f0e6d2' : 'rgba(200,170,110,0.45)'};
-  text-transform: uppercase;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  font-weight: ${p => p.$winner ? '700' : '400'};
-  text-shadow: ${p => p.$winner ? '0 0 10px rgba(200,170,110,0.5)' : 'none'};
-`;
-
-const MatchTeamThumb = styled.img`
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid ${p => p.$winner ? 'rgba(200,170,110,0.6)' : 'rgba(200,170,110,0.15)'};
-  flex-shrink: 0;
-  opacity: ${p => p.$winner === false ? 0.4 : 1};
-  filter: ${p => p.$winner === false ? 'grayscale(0.5)' : 'none'};
-`;
-
-const MatchVsSeparator = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  width: 36px;
-`;
-
-const MatchVsText = styled.div`
-  font-family: 'Cinzel', serif;
-  font-size: 0.42rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  color: rgba(200,170,110,0.5);
-  text-transform: uppercase;
-`;
-
-const MatchVsLine = styled.div`
-  width: 1px;
-  height: 10px;
-  background: rgba(200,170,110,0.2);
-`;
-
-const MatchVideoInput = styled.input`
-  flex: 1;
-  background: rgba(200,170,110,0.04);
-  border: 1px solid rgba(200,170,110,0.15);
-  color: #f0e6d2;
-  font-family: 'Cinzel', serif;
-  font-size: 0.52rem;
-  letter-spacing: 0.08em;
-  padding: 8px 12px;
-  outline: none;
-  clip-path: polygon(5px 0%, calc(100% - 5px) 0%, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0% calc(100% - 5px), 0% 5px);
-  transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
-  min-width: 0;
-  box-sizing: border-box;
-
-  &::placeholder { color: rgba(200,170,110,0.22); font-style: italic; }
-  &:focus {
-    border-color: rgba(200,170,110,0.45);
-    background: rgba(200,170,110,0.08);
-    box-shadow: 0 0 12px rgba(200,170,110,0.08);
-  }
-`;
-
-const MatchRoundBadge = styled.div`
-  font-family: 'Cinzel', serif;
-  font-size: 0.36rem;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  color: rgba(200,170,110,0.3);
-  white-space: nowrap;
-  flex-shrink: 0;
-  writing-mode: vertical-lr;
-  transform: rotate(180deg);
-  padding: 4px 0;
-`;
-
-const EmptyResultsHint = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 200px;
-  font-family: 'Cinzel', serif;
-  font-size: 0.5rem;
-  letter-spacing: 0.35em;
-  text-transform: uppercase;
-  color: rgba(200,170,110,0.25);
-  text-align: center;
-  line-height: 2;
-`;
-
-const FinalizeBtn = styled.button`
-  font-family: 'Cinzel', serif;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.35em;
-  text-transform: uppercase;
-  padding: 14px 48px;
-  margin-top: 40px;
-  clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
-  cursor: pointer;
-  border: 1px solid rgba(200,170,110,0.5);
-  background: rgba(200,170,110,0.08);
-  color: rgba(200,170,110,0.9);
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s ease;
-  align-self: center;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(200,170,110,0.08), transparent);
-    transform: translateX(-100%);
-    transition: transform 0.5s ease;
-  }
-
-  &:hover {
-    border-color: rgba(200,170,110,0.9);
-    color: #f0e6d2;
-    background: rgba(200,170,110,0.14);
-    box-shadow: 0 0 28px rgba(200,170,110,0.18), inset 0 0 16px rgba(200,170,110,0.06);
-    &::before { transform: translateX(100%); }
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-    pointer-events: none;
-  }
-
-  &:active { transform: scale(0.97); }
-`;
-
-const FinalizeStatus = styled.p`
-  font-family: 'Cinzel', serif;
-  font-size: 0.48rem;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  color: ${p => p.$error ? "rgba(220,100,80,0.85)" : "rgba(100,200,120,0.85)"};
-  text-align: center;
-  margin-top: 10px;
-`;
 
 function TrophyGold() {
   return (
@@ -2708,11 +2795,13 @@ function ResultsView({ teams, tournamentName, format, participants, router }) {
   const handleVideoBlur = async (matchId, value) => {
     if (!value.trim()) return;
     try {
-      const { doc, updateDoc } = await import("firebase/firestore");
+      const { getDocs, collection, setDoc, doc } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
-      await updateDoc(doc(database, "tournaments", tournamentName, "matches", matchId), {
-        videoLink: value.trim(),
-      });
+      // matchId is the internal id field (m1, m3...), find the actual Firestore doc
+      const snap = await getDocs(collection(database, "tournaments", tournamentName, "matches"));
+      const matchDoc = snap.docs.find(d => d.data().id === matchId);
+      if (!matchDoc) { console.error("Match doc not found for id:", matchId); return; }
+      await setDoc(matchDoc.ref, { videoLink: value.trim() }, { merge: true });
     } catch (e) {
       console.error("Failed to save video link:", e);
     }
@@ -2730,11 +2819,12 @@ function ResultsView({ teams, tournamentName, format, participants, router }) {
       const { database } = await import("@/backend/Firebase");
 
       // 1. Save all pending video links to their match docs
+      const matchesSnap = await getDocs(collection(database, "tournaments", tournamentName, "matches"));
       const batch1 = writeBatch(database);
       Object.entries(videoLinks).forEach(([matchId, link]) => {
         if (link?.trim()) {
-          const ref = doc(database, "tournaments", tournamentName, "matches", matchId);
-          batch1.update(ref, { videoLink: link.trim() });
+          const matchDoc = matchesSnap.docs.find(d => d.data().id === matchId);
+          if (matchDoc) batch1.set(matchDoc.ref, { videoLink: link.trim() }, { merge: true });
         }
       });
       await batch1.commit();
@@ -3102,17 +3192,25 @@ const handleConfirmReactivate = async () => {
     const count = parseInt(teamCountInput, 10);
     if (isNaN(count) || count <= 0) return;
     try {
-      const { addDoc, collection, serverTimestamp } = await import("firebase/firestore");
+      const { addDoc, collection, serverTimestamp, getDocs, deleteDoc, doc, updateDoc } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
+
+      const existingSnap = await getDocs(collection(database, "tournaments", tournamentName, "teams"));
+      await Promise.all(existingSnap.docs.map(d => deleteDoc(doc(database, "tournaments", tournamentName, "teams", d.id))));
+
       const newTeams = [];
       for (let i = 0; i < count; i++) {
-        const teamRef = await addDoc(collection(database, "tournaments", tournamentName, "teams"), { name: "Undecided", imgLink: "/question.jpg", members: [], createdAt: serverTimestamp() });
-        newTeams.push({ id: teamRef.id, name: "Undecided", imgLink: "/question.jpg", members: [] });
+        const uniqueName = `Undecided${i + 1}`;
+        const teamRef = await addDoc(collection(database, "tournaments", tournamentName, "teams"), { name: uniqueName, imgLink: "", members: [], createdAt: serverTimestamp() });
+        newTeams.push({ id: teamRef.id, name: uniqueName, imgLink: "", members: [] });
       }
-      setTeams([...teams, ...newTeams]);
+
+      await updateDoc(doc(database, "tournaments", tournamentName), { totalTeams: count });
+
+      setTeams(newTeams);
       setShowAddTeamsModal(false);
       setTeamCountInput("");
-    } catch (e) { console.error("Failed to create teams:", e); }
+    } catch (e) { console.error("Failed to set teams:", e); }
   };
 
   const getAvailableParticipants = () => {
@@ -3199,12 +3297,18 @@ const handleConfirmReactivate = async () => {
     } catch (e) { console.error("Failed to remove participant:", e); }
   };
 
-  const handleSaveEditTeam = async (teamId, newName, newImgLink) => {
+  const handleSaveEditTeam = async (teamId, newName, newImgLink, setNameError) => {
+    const trimmed = newName.trim();
+    const isDuplicate = teams.some(t => t.id !== teamId && t.name.toLowerCase() === trimmed.toLowerCase());
+    if (isDuplicate) {
+      setNameError(`"${trimmed}" is already taken`);
+      return;
+    }
     try {
       const { updateDoc, doc } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
-      await updateDoc(doc(database, "tournaments", tournamentName, "teams", teamId), { name: newName.trim(), imgLink: newImgLink.trim() });
-      setTeams(teams.map(t => t.id === teamId ? { ...t, name: newName.trim(), imgLink: newImgLink.trim() } : t));
+      await updateDoc(doc(database, "tournaments", tournamentName, "teams", teamId), { name: trimmed, imgLink: newImgLink.trim() });
+      setTeams(teams.map(t => t.id === teamId ? { ...t, name: trimmed, imgLink: newImgLink.trim() } : t));
       setEditingTeamId(null);
     } catch (e) { console.error("Failed to save team:", e); }
   };
@@ -3320,7 +3424,7 @@ const handleConfirmReactivate = async () => {
       {phase === 1 && (
         <PhaseContentContainer>
           <TopActionRow>
-            <AddTeamsBtn onClick={() => setShowAddTeamsModal(true)}><span>+ Add Teams</span></AddTeamsBtn>
+            <AddTeamsBtn onClick={() => setShowAddTeamsModal(true)}><span>Set Teams</span></AddTeamsBtn>
             <ParticipantsBtn onClick={() => setShowParticipantsModal(true)}>
               <span style={{ display: "flex", alignItems: "center", gap: "7px" }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
@@ -3343,7 +3447,7 @@ const handleConfirmReactivate = async () => {
                 <CardCorner style={{ bottom: 0, left: 0, transform: "scaleY(-1)" }} />
                 <CardCorner style={{ bottom: 0, right: 0, transform: "scale(-1)" }} />
                 <TeamCardImageWrapper>
-                  <TeamCardImage src={team.imgLink || "/question.jpg"} alt={team.name} onError={e => { e.target.src = "/question.jpg"; }} />
+                  <TeamCardImage src={team.imgLink || "/question.jpg"} alt={team.name} onError={e => { e.target.src = "/question.jpg"; }} style={{ filter: team.imgLink ? "none" : "grayscale(0.3) opacity(0.5)" }} />
                   <TeamCardEditBtn onClick={() => setEditingTeamId(team.id)}>
                     <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                   </TeamCardEditBtn>
@@ -3396,7 +3500,7 @@ const handleConfirmReactivate = async () => {
             <CardCorner style={{ top: 0, right: 0, transform: "scaleX(-1)" }} />
             <CardCorner style={{ bottom: 0, left: 0, transform: "scaleY(-1)" }} />
             <CardCorner style={{ bottom: 0, right: 0, transform: "scale(-1)" }} />
-            <ModalTitle>How Many Teams?</ModalTitle>
+            <ModalTitle>Set Number of Teams</ModalTitle>
             <ModalDivider />
             <ModalField>
               <ModalLabel>Number of Teams</ModalLabel>

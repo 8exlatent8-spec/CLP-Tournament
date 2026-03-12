@@ -28,10 +28,12 @@ const cardShimmer = keyframes`
 
 export const BracketContainer = styled.div`
   width: 100%;
-  height: 72vh;
+  height: clamp(340px, 72vh, 900px);
   overflow: hidden;
   position: relative;
   cursor: grab;
+  touch-action: none;
+  overscroll-behavior: none;
   background:
     repeating-linear-gradient(
       60deg, rgba(200,170,110,0.012) 0, transparent 1px, transparent 22px
@@ -85,7 +87,7 @@ export const MatchCard = styled.div`
   flex-direction: column;
   overflow: hidden;
   transition: border-color 0.25s ease, box-shadow 0.25s ease;
-  cursor: ${p => p.$pending ? 'pointer' : 'default'};
+  cursor: ${p => (p.$pending || p.$watchable) ? 'pointer' : 'default'};
 
   ${p => p.$pending && css`
     &::before {
@@ -776,8 +778,14 @@ export function BracketView({ teams, tournamentName, onCompletionChange, format 
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [teamMap, setTeamMap] = useState({});
-  const [scale, setScale] = useState(0.7);
-  const [pan, setPan] = useState({ x: 40, y: 80 });
+const getInitialScale = () => {
+  if (typeof window === 'undefined') return 0.7;
+  if (window.innerWidth < 480) return 0.35;
+  if (window.innerWidth < 768) return 0.5;
+  return 0.7;
+};
+const [scale, setScale] = useState(getInitialScale);
+const [pan, setPan] = useState({ x: 40, y: 80 });
   const [pickingMatch, setPickingMatch] = useState(null);
 
   useEffect(() => {
@@ -791,6 +799,7 @@ export function BracketView({ teams, tournamentName, onCompletionChange, format 
   }, [matches, onCompletionChange]);
 
   const containerRef = useRef(null);
+  const wheelListenerRef = useRef(null);
   const isPanning = useRef(false);
   const panStart = useRef({ x: 0, y: 0, px: 0, py: 0 });
   const didPan = useRef(false);
@@ -831,7 +840,18 @@ const bracketsAreStale = snap.empty || (() => {
 })();
 
         if (!bracketsAreStale) {
-          setMatches(snap.docs.map(d => ({ ...d.data(), firestoreId: d.id })));
+          const loaded = snap.docs.map(d => ({ ...d.data(), firestoreId: d.id }));
+          // Re-fetch to make sure videoLink fields from setDoc merges are included
+          // Build a map from internal match id -> full doc data
+          const byInternalId = {};
+          snap.docs.forEach(d => {
+            const data = d.data();
+            if (data.id) byInternalId[data.id] = { ...data, firestoreId: d.id };
+          });
+          setMatches(loaded.map(m => ({
+            ...m,
+            videoLink: byInternalId[m.id]?.videoLink || m.videoLink || null,
+          })));
         } else {
           const deleteBatch = writeBatch(database);
           snap.docs.forEach(d => deleteBatch.delete(d.ref));
@@ -933,8 +953,11 @@ const bracketsAreStale = snap.empty || (() => {
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    
 
     const onWheel = e => {
+            console.log('🖱️ Wheel fired, deltaY:', e.deltaY);
+
       e.preventDefault();
       e.stopPropagation();
       const rect = el.getBoundingClientRect();
@@ -973,9 +996,16 @@ const bracketsAreStale = snap.empty || (() => {
     };
     const onTouchEnd = () => { lastDist = null; };
 
+    wheelListenerRef.current = onWheel;
     el.addEventListener('wheel', onWheel, { passive: false });
+    document.addEventListener('wheel', (e) => {
+      if (el.contains(e.target)) {
+        e.preventDefault();
+      }
+    }, { passive: false });
     el.addEventListener('touchmove', onTouchMove, { passive: false });
     el.addEventListener('touchend', onTouchEnd);
+    console.log('🎯 Wheel listener attached to:', el);
     return () => {
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('touchmove', onTouchMove);
@@ -991,6 +1021,24 @@ const bracketsAreStale = snap.empty || (() => {
     setPan({ x: panStart.current.px + dx, y: panStart.current.py + dy });
   };
   const handleMouseUp = () => {
+    isPanning.current = false;
+    setTimeout(() => { didPan.current = false; }, 0);
+  };
+
+  const handleTouchStart = e => {
+    if (e.touches.length !== 1) return;
+    isPanning.current = true;
+    didPan.current = false;
+    panStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, px: panRef.current.x, py: panRef.current.y };
+  };
+  const handleTouchPan = e => {
+    if (e.touches.length !== 1 || !isPanning.current) return;
+    const dx = e.touches[0].clientX - panStart.current.x;
+    const dy = e.touches[0].clientY - panStart.current.y;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) didPan.current = true;
+    setPan({ x: panStart.current.px + dx, y: panStart.current.py + dy });
+  };
+  const handleTouchEnd = () => {
     isPanning.current = false;
     setTimeout(() => { didPan.current = false; }, 0);
   };
@@ -1097,16 +1145,19 @@ const bracketsAreStale = snap.empty || (() => {
         $placement={isSpecial}
         $complete={isComplete}
         $pending={isClickable}
+        $watchable={readOnly && !!m.videoLink}
         onClick={() => {
           if (didPan.current) return;
           if (readOnly) {
-            if (m.videoLink) window.open(m.videoLink, "_blank", "noopener,noreferrer");
+            console.log("Match clicked:", m.id, "videoLink:", m.videoLink);
+            const link = m.videoLink;
+            if (link) window.open(link.startsWith('http') ? link : `https://${link}`, "_blank", "noopener,noreferrer");
           } else {
             if (isClickable) setPickingMatch(m);
           }
         }}
         title={readOnly
-          ? (m.videoLink ? "Click to watch match" : "No clip available")
+          ? (m.videoLink ? "▶ Click to watch clip" : "No clip available")
           : isComplete ? "Click to change result" : isClickable ? "Click to select winner" : "Waiting for teams"}
       >
         {m.label && (
@@ -1168,13 +1219,13 @@ const bracketsAreStale = snap.empty || (() => {
   });
 
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'rgba(200,170,110,0.35)', fontFamily: 'Cinzel,serif', fontSize: '0.55rem', letterSpacing: '0.4em' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 'clamp(200px, 60vh, 900px)', color: 'rgba(200,170,110,0.35)', fontFamily: 'Cinzel,serif', fontSize: '0.55rem', letterSpacing: '0.4em' }}>
       GENERATING BRACKET...
     </div>
   );
 
   if (teams.length < 2) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'rgba(200,170,110,0.3)', fontFamily: 'Cinzel,serif', fontSize: '0.55rem', letterSpacing: '0.3em', textAlign: 'center' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 'clamp(200px, 60vh, 900px)', color: 'rgba(200,170,110,0.3)', fontFamily: 'Cinzel,serif', fontSize: '0.55rem', letterSpacing: '0.3em', textAlign: 'center' }}>
       ADD AT LEAST 2 TEAMS TO GENERATE BRACKET
     </div>
   );
@@ -1187,6 +1238,10 @@ const bracketsAreStale = snap.empty || (() => {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchPan}
+        onTouchEnd={handleTouchEnd}
+        onWheel={e => { e.stopPropagation(); }}
       >
         <BracketInner style={{ transform: `translate(${pan.x}px,${pan.y}px) scale(${scale})`, transformOrigin: '0 0' }}>
           <svg style={{ position: 'absolute', top: 0, left: 0, width: 9999, height: 9999, overflow: 'visible', pointerEvents: 'none', zIndex: 0 }}>
@@ -1227,6 +1282,70 @@ const bracketsAreStale = snap.empty || (() => {
           {plMs.map(m => renderCard(m, plPos(), { isSpecial: true }))}
         </BracketInner>
         <BracketZoomHint>scroll to zoom · drag to pan · click match to pick winner</BracketZoomHint>
+      <div style={{
+        position: 'absolute', bottom: 12, left: 12,
+        display: 'flex', alignItems: 'center', gap: 6,
+        zIndex: 10,
+      }}>
+        {[{ label: '−', delta: -0.15 }, { label: '+', delta: 0.15 }].map(({ label, delta }) => (
+          <button
+            key={label}
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => {
+              e.stopPropagation();
+              const el = containerRef.current;
+              if (!el) return;
+              const rect = el.getBoundingClientRect();
+              const cx = rect.width / 2, cy = rect.height / 2;
+              const cur = scaleRef.current, pan = panRef.current;
+              const newScale = Math.max(0.2, Math.min(2.5, cur + delta));
+              const bx = (cx - pan.x) / cur, by = (cy - pan.y) / cur;
+              setScale(newScale);
+              setPan({ x: cx - bx * newScale, y: cy - by * newScale });
+            }}
+            style={{
+              width: 28, height: 28,
+              background: 'rgba(10,11,18,0.92)',
+              border: '1px solid rgba(200,170,110,0.3)',
+              color: 'rgba(200,170,110,0.75)',
+              fontFamily: 'Cinzel, serif',
+              fontSize: '1rem', lineHeight: 1,
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              clipPath: 'polygon(4px 0%, calc(100% - 4px) 0%, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0% calc(100% - 4px), 0% 4px)',
+              transition: 'background 0.2s, border-color 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(200,170,110,0.15)'; e.currentTarget.style.borderColor = 'rgba(200,170,110,0.6)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(10,11,18,0.92)'; e.currentTarget.style.borderColor = 'rgba(200,170,110,0.3)'; }}
+          >
+            {label}
+          </button>
+        ))}
+        <button
+          onMouseDown={e => e.stopPropagation()}
+          onClick={e => {
+            e.stopPropagation();
+            setScale(getInitialScale());
+            setPan({ x: 40, y: 80 });
+          }}
+          style={{
+            height: 28, padding: '0 10px',
+            background: 'rgba(10,11,18,0.92)',
+            border: '1px solid rgba(200,170,110,0.2)',
+            color: 'rgba(200,170,110,0.4)',
+            fontFamily: 'Cinzel, serif',
+            fontSize: '0.38rem', letterSpacing: '0.25em',
+            textTransform: 'uppercase',
+            cursor: 'pointer',
+            clipPath: 'polygon(4px 0%, calc(100% - 4px) 0%, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0% calc(100% - 4px), 0% 4px)',
+            transition: 'background 0.2s, border-color 0.2s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(200,170,110,0.1)'; e.currentTarget.style.borderColor = 'rgba(200,170,110,0.4)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(10,11,18,0.92)'; e.currentTarget.style.borderColor = 'rgba(200,170,110,0.2)'; }}
+        >
+          Reset
+        </button>
+      </div>
       </BracketContainer>
 
       {!readOnly && pickingMatch && (

@@ -843,7 +843,7 @@ const MemberGridWrap = styled.div`
 
   @media (max-width: 1000px) { grid-template-columns: repeat(3, 1fr); }
   @media (max-width: 680px)  { grid-template-columns: repeat(2, 1fr); }
-  @media (max-width: 420px)  { grid-template-columns: 1fr; }
+  @media (max-width: 420px)  { grid-template-columns: repeat(3, 1fr); }
 `;
 
 const MCard = styled.div`
@@ -1058,11 +1058,19 @@ const CardIconBtn = styled.button`
 const EditBtn = styled(CardIconBtn)`
   top: 8px;
   right: 8px;
+
+  @media (hover: none) {
+    opacity: 1;
+  }
 `;
 
 const DeleteBtn = styled(CardIconBtn)`
   top: 8px;
   right: 40px;
+
+  @media (hover: none) {
+    opacity: 1;
+  }
 
   &:hover {
     background: rgba(200,60,60,0.2);
@@ -2066,11 +2074,11 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "" }) {
   const [members, setMembers] = useState([]);
   const [editingMember, setEditingMember] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+const [confirmDelete, setConfirmDelete] = useState(null);
   const { admin: isAdmin } = useStateContext();
   const cardRefs = useRef([]);
 
   const handleDelete = async (m) => {
-    if (!window.confirm(`Delete "${m.name}"?`)) return;
     setDeletingId(m.id);
     try {
       const { doc, deleteDoc } = await import("firebase/firestore");
@@ -2081,6 +2089,7 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "" }) {
       console.error("Failed to delete member:", e);
     } finally {
       setDeletingId(null);
+      setConfirmDelete(null);
     }
   };
 
@@ -2152,10 +2161,10 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "" }) {
           <MCardAvatarWrap>
             {isAdmin && (
               <>
-                <DeleteBtn
-                  onClick={() => handleDelete(m)}
-                  disabled={deletingId === m.id}
-                >
+<DeleteBtn
+  onClick={() => setConfirmDelete(m)}
+  disabled={deletingId === m.id}
+>
                   {deletingId === m.id ? (
                     <svg viewBox="0 0 16 16" width="10" height="10" fill="none">
                       <circle cx="8" cy="8" r="6" stroke="rgba(220,80,80,0.6)" strokeWidth="1.5" strokeDasharray="20" strokeDashoffset="0">
@@ -2232,6 +2241,13 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "" }) {
         </MCard>
       ))}
     </MemberGridWrap>
+    {confirmDelete && (
+        <ConfirmModal
+          message={`Delete "${confirmDelete.name}"?`}
+          onConfirm={() => handleDelete(confirmDelete)}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     {editingMember && (
         <EditMemberModal
           member={editingMember}
