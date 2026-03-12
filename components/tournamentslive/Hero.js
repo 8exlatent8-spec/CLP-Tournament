@@ -2663,7 +2663,9 @@ function TrophyBronze() {
 }
 // ─── ResultsView Component ────────────────────────────────────────────────────
 
+
 function ResultsView({ teams, tournamentName, format, participants, router }) { 
+  const matchDocMapRef = useRef({});
   const [matches, setMatches] = useState([]);
   const [standings, setStandings] = useState([]);
   const [videoLinks, setVideoLinks] = useState({});
@@ -2679,12 +2681,15 @@ function ResultsView({ teams, tournamentName, format, participants, router }) {
         const { database } = await import("@/backend/Firebase");
 
         // check tournament status
+        console.log("📖 READ: fetching tournament doc for status check");
         const tDoc = await getDoc(doc(database, "tournaments", tournamentName));
         if (tDoc.exists() && tDoc.data().status === "finished") {
           setAlreadyFinished(true);
         }
 
+        console.log("📖 READ: fetching all matches for results view");
         const snap = await getDocs(collection(database, "tournaments", tournamentName, "matches"));
+        console.log(`📖 READ: received ${snap.docs.length} match docs`);
         const docMap = {};
         const all = snap.docs.map(d => {
           const data = d.data();
@@ -2805,6 +2810,7 @@ const handleVideoBlur = async (matchId, value) => {
       const { database } = await import("@/backend/Firebase");
       const ref = matchDocMapRef.current?.[matchId];
       if (!ref) { console.error("No cached ref for match:", matchId); return; }
+      console.log(`✏️ WRITE: saving video link for match "${matchId}"`);
       await updateDoc(ref, { videoLink: value.trim() });
     } catch (e) {
       console.error("Failed to save video link:", e);
@@ -2822,19 +2828,27 @@ const handleVideoBlur = async (matchId, value) => {
       } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
 
-      // 1. Save all pending video links to their match docs
-      const matchesSnap = await getDocs(collection(database, "tournaments", tournamentName, "matches"));
+      // 1. Save all pending video links using cached refs (no extra read needed)
       const batch1 = writeBatch(database);
+      let hasVideoLinks = false;
       Object.entries(videoLinks).forEach(([matchId, link]) => {
         if (link?.trim()) {
-          const matchDoc = matchesSnap.docs.find(d => d.data().id === matchId);
-          if (matchDoc) batch1.set(matchDoc.ref, { videoLink: link.trim() }, { merge: true });
+          const ref = matchDocMapRef.current?.[matchId];
+          if (ref) {
+            console.log(`✏️ WRITE (batch): saving video link for match "${matchId}"`);
+            batch1.set(ref, { videoLink: link.trim() }, { merge: true });
+            hasVideoLinks = true;
+          }
         }
       });
-      await batch1.commit();
+      if (hasVideoLinks) {
+        console.log("✏️ WRITE: committing video links batch");
+        await batch1.commit();
+      }
 
       // 2. Mark tournament as finished
       const tRef = doc(database, "tournaments", tournamentName);
+      console.log("📖 READ: fetching tournament doc for finalize");
       const tSnap = await getDoc(tRef);
       const tData = tSnap.data();
 
@@ -2842,7 +2856,9 @@ const handleVideoBlur = async (matchId, value) => {
       const participantList = participants?.length ? participants : (tData?.participants ?? []);
 
       // 4. Get all teams and their members to find rank-1, rank-2, rank-3 team members
+      console.log("📖 READ: fetching teams for finalize podium resolution");
       const teamsSnap = await getDocs(collection(database, "tournaments", tournamentName, "teams"));
+      console.log(`📖 READ: received ${teamsSnap.docs.length} team docs`);
       const teamDocs = teamsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       const rank1Team = standings.find(t => t.rank === 1);
@@ -2853,10 +2869,13 @@ const handleVideoBlur = async (matchId, value) => {
       const rank2Members = teamDocs.find(t => t.id === rank2Team?.id)?.members ?? [];
       const rank3Members = teamDocs.find(t => t.id === rank3Team?.id)?.members ?? [];
 
+      console.log("✏️ WRITE: marking tournament as finished with podium teams");
       await updateDoc(tRef, { status: "finished", firstTeam: rank1Members, secondTeam: rank2Members, thirdTeam: rank3Members });
       router.push("/");
       // 5. Load all member docs for participants
+      console.log("📖 READ: fetching all members to update stats");
       const membersSnap = await getDocs(collection(database, "members"));
+      console.log(`📖 READ: received ${membersSnap.docs.length} member docs for stat updates`);
       const batch2 = writeBatch(database);
 
       membersSnap.docs.forEach(mDoc => {
@@ -2872,9 +2891,11 @@ const handleVideoBlur = async (matchId, value) => {
         if (rank2Members.includes(name)) updates.second = (data.second ?? 0) + 1;
         if (rank3Members.includes(name)) updates.third  = (data.third  ?? 0) + 1;
 
+        console.log(`✏️ WRITE (batch): updating stats for member "${name}"`);
         batch2.update(doc(database, "members", name), updates);
       });
 
+      console.log("✏️ WRITE: committing member stats batch");
       await batch2.commit();
       setAlreadyFinished(true);
       setFinalizeMsg("Tournament finalized! Stats updated for all participants.");
@@ -3032,6 +3053,7 @@ export default function Hero() {
       try {
         const { getDoc, doc } = await import("firebase/firestore");
         const { database } = await import("@/backend/Firebase");
+        console.log("📖 READ: fetching tournament doc for phase/format load");
         const docSnap = await getDoc(doc(database, "tournaments", tournamentName));
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -3052,7 +3074,9 @@ export default function Hero() {
       try {
         const { getDocs, collection } = await import("firebase/firestore");
         const { database } = await import("@/backend/Firebase");
+        console.log("📖 READ: fetching all members for image map");
         const snap = await getDocs(collection(database, "members"));
+        console.log(`📖 READ: received ${snap.docs.length} members for image map`);
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setAllMembers(list);
         const imgs = {};
@@ -3074,6 +3098,7 @@ export default function Hero() {
         orderBy("createdAt", "asc")
       );
       unsub = onSnapshot(teamsQuery, snap => {
+        console.log(`📖 READ (snapshot): received ${snap.docs.length} team docs`);
         setTeams(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       }, e => console.error("Teams listener error:", e));
     })();
@@ -3128,6 +3153,7 @@ const handleConfirmReactivate = async () => {
       const { updateDoc, doc, getDoc, getDocs, collection, writeBatch } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
 
+      console.log("📖 READ: fetching tournament doc for reactivation");
       const tRef = doc(database, "tournaments", tournamentName);
       const tSnap = await getDoc(tRef);
       const tData = tSnap.data();
@@ -3137,7 +3163,9 @@ const handleConfirmReactivate = async () => {
       const secondTeam = tData?.secondTeam ?? [];
       const thirdTeam  = tData?.thirdTeam  ?? [];
 
+      console.log("📖 READ: fetching all members to reverse finalize stats");
       const membersSnap = await getDocs(collection(database, "members"));
+      console.log(`📖 READ: received ${membersSnap.docs.length} member docs for stat reversal`);
       const batch = writeBatch(database);
 
       membersSnap.docs.forEach(mDoc => {
@@ -3152,11 +3180,14 @@ const handleConfirmReactivate = async () => {
         if (secondTeam.includes(name)) updates.second = Math.max(0, (data.second ?? 0) - 1);
         if (thirdTeam.includes(name))  updates.third  = Math.max(0, (data.third  ?? 0) - 1);
 
+        console.log(`✏️ WRITE (batch): reversing stats for member "${name}"`);
         batch.update(doc(database, "members", name), updates);
       });
 
+      console.log("✏️ WRITE: committing stat reversal batch");
       await batch.commit();
 
+      console.log("✏️ WRITE: marking tournament as ongoing again");
       await updateDoc(tRef, {
         status: "ongoing",
         phase: 2,
@@ -3183,20 +3214,34 @@ const handleConfirmReactivate = async () => {
     const count = parseInt(teamCountInput, 10);
     if (isNaN(count) || count <= 0) return;
     try {
-      const { addDoc, collection, serverTimestamp, getDocs, deleteDoc, doc, updateDoc } = await import("firebase/firestore");
+      const { collection, serverTimestamp, getDocs, doc, writeBatch } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
 
+      console.log("📖 READ: fetching existing teams to delete before reset");
       const existingSnap = await getDocs(collection(database, "tournaments", tournamentName, "teams"));
-      await Promise.all(existingSnap.docs.map(d => deleteDoc(doc(database, "tournaments", tournamentName, "teams", d.id))));
+      const deleteBatch = writeBatch(database);
+      existingSnap.docs.forEach(d => deleteBatch.delete(doc(database, "tournaments", tournamentName, "teams", d.id)));
+      console.log(`✏️ WRITE: deleting ${existingSnap.docs.length} existing team docs (batch)`);
+      await deleteBatch.commit();
 
       const newTeams = [];
+      const createBatch = writeBatch(database);
+      const teamRefs = [];
       for (let i = 0; i < count; i++) {
         const uniqueName = `Undecided${i + 1}`;
-        const teamRef = await addDoc(collection(database, "tournaments", tournamentName, "teams"), { name: uniqueName, imgLink: "", members: [], createdAt: serverTimestamp() });
-        newTeams.push({ id: teamRef.id, name: uniqueName, imgLink: "", members: [] });
+        const teamRef = doc(collection(database, "tournaments", tournamentName, "teams"));
+        createBatch.set(teamRef, { name: uniqueName, imgLink: "", members: [], createdAt: serverTimestamp() });
+        teamRefs.push({ ref: teamRef, name: uniqueName });
+        console.log(`✏️ WRITE (batch): queuing team "${uniqueName}"`);
       }
+      console.log("✏️ WRITE: creating all teams + updating totalTeams (batch)");
+      const tournamentRef = doc(database, "tournaments", tournamentName);
+      createBatch.update(tournamentRef, { totalTeams: count });
+      await createBatch.commit();
 
-      await updateDoc(doc(database, "tournaments", tournamentName), { totalTeams: count });
+      teamRefs.forEach(({ ref, name }) => {
+        newTeams.push({ id: ref.id, name, imgLink: "", members: [] });
+      });
 
       setTeams(newTeams);
       setShowAddTeamsModal(false);
@@ -3216,6 +3261,7 @@ const handleConfirmReactivate = async () => {
       const { updateDoc, doc, arrayUnion } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
       const newMembers = Array.from(selectedMembers);
+      console.log(`✏️ WRITE: adding ${newMembers.length} member(s) to team "${selectedTeamId}"`);
       await updateDoc(doc(database, "tournaments", tournamentName, "teams", selectedTeamId), { members: arrayUnion(...newMembers) });
       setTeams(teams.map(t => t.id === selectedTeamId ? { ...t, members: [...(t.members || []), ...newMembers] } : t));
       setShowAddMembersModal(false);
@@ -3228,6 +3274,7 @@ const handleConfirmReactivate = async () => {
     try {
       const { updateDoc, doc, arrayRemove } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
+      console.log(`✏️ WRITE: removing member "${member}" from team "${teamId}"`);
       await updateDoc(doc(database, "tournaments", tournamentName, "teams", teamId), { members: arrayRemove(member) });
       setTeams(prev => prev.map(t => t.id === teamId ? { ...t, members: (t.members || []).filter(m => m !== member) } : t));
     } catch (e) { console.error("Failed to remove member:", e); }
@@ -3247,6 +3294,7 @@ const handleConfirmReactivate = async () => {
     try {
       const { getDoc, doc } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
+      console.log(`📖 READ: fetching image for random member "${randomParticipant}"`);
       const snap = await getDoc(doc(database, "members", randomParticipant));
       if (snap.exists()) { const data = snap.data(); imgSrc = data.imglink || data.imgLink || "/question.jpg"; }
     } catch (e) { console.error("[Random] Failed to fetch member image:", e); }
@@ -3263,6 +3311,7 @@ const handleConfirmReactivate = async () => {
     try {
       const { updateDoc, doc, arrayUnion } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
+      console.log(`✏️ WRITE: confirming random member "${member}" to team "${teamId}"`);
       await updateDoc(doc(database, "tournaments", tName, "teams", teamId), { members: arrayUnion(member) });
       setTeams(prev => prev.map(t => t.id === teamId ? { ...t, members: [...(t.members || []), member] } : t));
       randomRevealRef.current = null;
@@ -3274,6 +3323,7 @@ const handleConfirmReactivate = async () => {
     try {
       const { updateDoc, doc, arrayUnion } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
+      console.log(`✏️ WRITE: adding participant "${memberName}" to tournament`);
       await updateDoc(doc(database, "tournaments", tournamentName), { participants: arrayUnion(memberName) });
       setParticipants(prev => [...prev, memberName]);
     } catch (e) { console.error("Failed to add participant:", e); }
@@ -3283,6 +3333,7 @@ const handleConfirmReactivate = async () => {
     try {
       const { updateDoc, doc, arrayRemove } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
+      console.log(`✏️ WRITE: removing participant "${memberName}" from tournament`);
       await updateDoc(doc(database, "tournaments", tournamentName), { participants: arrayRemove(memberName) });
       setParticipants(prev => prev.filter(p => p !== memberName));
     } catch (e) { console.error("Failed to remove participant:", e); }
@@ -3298,6 +3349,7 @@ const handleConfirmReactivate = async () => {
     try {
       const { updateDoc, doc } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
+      console.log(`✏️ WRITE: saving edited team "${teamId}" with name "${trimmed}"`);
       await updateDoc(doc(database, "tournaments", tournamentName, "teams", teamId), { name: trimmed, imgLink: newImgLink.trim() });
       setTeams(teams.map(t => t.id === teamId ? { ...t, name: trimmed, imgLink: newImgLink.trim() } : t));
       setEditingTeamId(null);
@@ -3308,6 +3360,7 @@ const handleConfirmReactivate = async () => {
     try {
       const { deleteDoc, doc } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
+      console.log(`✏️ WRITE: deleting team doc "${teamId}"`);
       await deleteDoc(doc(database, "tournaments", tournamentName, "teams", teamId));
       setTeams(prev => prev.filter(t => t.id !== teamId));
       setDeletingTeamId(null);

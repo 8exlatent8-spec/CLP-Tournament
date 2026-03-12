@@ -814,7 +814,9 @@ export default function Hero() {
       try {
         const { getDocs, collection } = await import("firebase/firestore");
         const { database } = await import("@/backend/Firebase");
+        console.log("📖 READ: fetching all members for profiles");
         const snap = await getDocs(collection(database, "members"));
+        console.log(`📖 READ: received ${snap.docs.length} member docs`);
         const map = {};
         snap.docs.forEach(d => { map[d.id] = d.data(); });
         setMemberProfiles(map);
@@ -830,11 +832,13 @@ export default function Hero() {
       try {
         const { getDocs, collection, query, orderBy } = await import("firebase/firestore");
         const { database } = await import("@/backend/Firebase");
+        console.log("📖 READ: fetching teams for viewer");
         const q = query(
           collection(database, "tournaments", tournamentName, "teams"),
           orderBy("createdAt", "asc")
         );
         const snap = await getDocs(q);
+        console.log(`📖 READ: received ${snap.docs.length} team docs`);
         setTeams(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (e) { console.error("Failed to load teams:", e); }
     }
@@ -849,11 +853,14 @@ export default function Hero() {
         const { getDocs, collection, getDoc, doc } = await import("firebase/firestore");
         const { database } = await import("@/backend/Firebase");
 
+        console.log("📖 READ: fetching tournament doc for format");
         const tDoc = await getDoc(doc(database, "tournaments", tournamentName));
         const tFormat = tDoc.exists() ? (tDoc.data().format || "Double-Elimination") : "Double-Elimination";
         setFormat(tFormat);
 
+        console.log("📖 READ: fetching all matches for standings");
         const snap = await getDocs(collection(database, "tournaments", tournamentName, "matches"));
+        console.log(`📖 READ: received ${snap.docs.length} match docs`);
         const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
         const videoMap = {};

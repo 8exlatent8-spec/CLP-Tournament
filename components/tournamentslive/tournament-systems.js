@@ -829,6 +829,7 @@ const teamIds = teams.map(t => t.id).sort().join(',');
         const { getDocs, collection, writeBatch, doc, onSnapshot } = await import("firebase/firestore");
         const { database } = await import("@/backend/Firebase");
         const snap = await getDocs(collection(database, "tournaments", tournamentName, "matches"));
+console.log(`📖 [Firestore READ] tournaments/${tournamentName}/matches — ${snap.docs.length} docs fetched`);
         const currentTeamIds = new Set(teams.map(t => t.id));
 
         const bracketsAreStale = snap.empty || (() => {
@@ -846,7 +847,9 @@ const teamIds = teams.map(t => t.id).sort().join(',');
         if (bracketsAreStale) {
           const deleteBatch = writeBatch(database);
           snap.docs.forEach(d => deleteBatch.delete(d.ref));
+          console.log(`🗑️ [Firestore WRITE] Deleting ${snap.docs.length} stale match docs from tournaments/${tournamentName}/matches`);
           await deleteBatch.commit();
+          console.log(`✅ [Firestore WRITE] Delete complete`);
           const generated =
             format === "Single-Elimination" ? generateSingleElimBracket(teams) :
                                              generateDoubleElimBracket(teams);
@@ -855,7 +858,9 @@ const teamIds = teams.map(t => t.id).sort().join(',');
             const ref = doc(collection(database, "tournaments", tournamentName, "matches"));
             createBatch.set(ref, m);
           });
+          console.log(`✏️ [Firestore WRITE] Writing ${generated.length} new match docs to tournaments/${tournamentName}/matches`);
           await createBatch.commit();
+          console.log(`✅ [Firestore WRITE] Create complete`);
         }
 
         // Unsubscribe any previous listener
@@ -865,6 +870,7 @@ const teamIds = teams.map(t => t.id).sort().join(',');
         unsubscribeMatchesRef.current = onSnapshot(
           collection(database, "tournaments", tournamentName, "matches"),
           (snapshot) => {
+            console.log(`🔔 [Firestore SNAPSHOT] tournaments/${tournamentName}/matches — ${snapshot.docs.length} docs received`);
             const newDocMap = {};
             const loaded = snapshot.docs.map(d => {
               const data = d.data();
@@ -937,7 +943,9 @@ const teamIds = teams.map(t => t.id).sort().join(',');
         const { firestoreId, ...data } = u;
         batch.update(ref, data);
       });
+      console.log(`✏️ [Firestore WRITE] Saving winner — updating ${changedIds.size} match doc(s) in tournaments/${tournamentName}/matches`, [...changedIds]);
       await batch.commit();
+      console.log(`✅ [Firestore WRITE] Winner save complete`);
     } catch (e) { console.error("Failed to save winner:", e); }
   };
 
@@ -971,6 +979,7 @@ const teamIds = teams.map(t => t.id).sort().join(',');
       const { collection: col, getDocs, writeBatch } = await import("firebase/firestore");
       const { database } = await import("@/backend/Firebase");
       const snap = await getDocs(col(database, "tournaments", tournamentName, "matches"));
+      console.log(`📖 [Firestore READ] tournaments/${tournamentName}/matches — ${snap.docs.length} docs fetched (undecide)`);
       const changedIds = new Set(
         updated.filter((u) => {
           const orig = matches.find(m => m.id === u.id);
@@ -983,7 +992,9 @@ const teamIds = teams.map(t => t.id).sort().join(',');
         const u = updated.find(m => m.id === d.data().id);
         if (u && changedIds.has(u.id)) { const { firestoreId, ...data } = u; batch.update(d.ref, data); }
       });
+      console.log(`✏️ [Firestore WRITE] Saving undecide — updating ${changedIds.size} match doc(s) in tournaments/${tournamentName}/matches`, [...changedIds]);
       await batch.commit();
+      console.log(`✅ [Firestore WRITE] Undecide save complete`);
     } catch (e) { console.error("Failed to save undecide:", e); }
   };
 

@@ -1482,7 +1482,9 @@ function AddTournamentModal({ onClose, onAdded }) {
         const { getDocs, collection, query, orderBy } = await import("firebase/firestore");
         const { database } = await import("../backend/Firebase");
         const q = query(collection(database, "members"), orderBy("first", "desc"));
+        console.log("📖 READ: fetching members list for tournament modal");
         const snap = await getDocs(q);
+        console.log(`📖 READ: received ${snap.docs.length} members for tournament modal`);
         setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (e) {
         console.error("Failed to load members:", e);
@@ -1511,13 +1513,16 @@ function AddTournamentModal({ onClose, onAdded }) {
     try {
       const { getDocs, collection, query, orderBy, setDoc, doc } = await import("firebase/firestore");
       const { database } = await import("../backend/Firebase");
+      console.log("📖 READ: fetching tournaments to determine next number");
       const snap = await getDocs(query(collection(database, "tournaments"), orderBy("number", "asc")));
+      console.log(`📖 READ: received ${snap.docs.length} tournaments for numbering`);
       const nextNumber = snap.docs.length + 1;
       const participantNames = members
         .filter(m => selected.has(m.id))
         .map(m => m.name);
       const tournamentName = form.name.trim();
       const { addDoc } = await import("firebase/firestore");
+      console.log("✏️ WRITE: creating new tournament document");
 const newRef = await addDoc(collection(database, "tournaments"), {
   name:              tournamentName,
   prizes:            form.prizes.trim(),
@@ -1695,12 +1700,14 @@ function AddMemberModal({ onClose, onAdded }) {
     try {
       const { doc, setDoc, getDoc } = await import("firebase/firestore");
       const { database }    = await import("../backend/Firebase");
+      console.log(`📖 READ: checking if member "${form.name.trim()}" already exists`);
       const existing = await getDoc(doc(database, "members", form.name.trim()));
       if (existing.exists()) {
         setNameError("Username already exists.");
         setLoading(false);
         return;
       }
+      console.log(`✏️ WRITE: creating new member doc "${form.name.trim()}"`);
       await setDoc(doc(database, "members", form.name.trim()), {
         name:           form.name.trim(),
         imglink:        form.imglink.trim(),
@@ -1839,6 +1846,7 @@ function EditMemberModal({ member, onClose, onSaved }) {
     try {
       const { doc, updateDoc } = await import("firebase/firestore");
       const { database }       = await import("../backend/Firebase");
+      console.log(`✏️ WRITE: updating member doc "${member.id}"`);
       await updateDoc(doc(database, "members", member.id), {
         name:           form.name.trim(),
         imglink:        form.imglink.trim(),
@@ -2085,6 +2093,7 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "" }) {
     try {
       const { doc, deleteDoc } = await import("firebase/firestore");
       const { database } = await import("../backend/Firebase");
+      console.log(`✏️ WRITE: deleting member doc "${m.id}"`);
       await deleteDoc(doc(database, "members", m.id));
       onRefresh?.();
     } catch (e) {
@@ -2101,7 +2110,9 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "" }) {
         const { getDocs, collection, query, orderBy } = await import("firebase/firestore");
         const { database } = await import("../backend/Firebase");
         const q = query(collection(database, "members"), orderBy("first", "desc"));
+        console.log("📖 READ: fetching all members");
         const snap = await getDocs(q);
+        console.log(`📖 READ: received ${snap.docs.length} member docs`);
         const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setMembers(data);
       } catch (e) {
@@ -2281,7 +2292,9 @@ function MemberHistoryModal({ member, onClose }) {
         const { getDocs, collection, query, orderBy } = await import("firebase/firestore");
         const { database } = await import("../backend/Firebase");
         const q = query(collection(database, "tournaments"), orderBy("number", "asc"));
+        console.log(`📖 READ: fetching all tournaments for member history ("${member.name}")`);
         const snap = await getDocs(q);
+        console.log(`📖 READ: received ${snap.docs.length} tournaments for member history`);
         const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         const participated = all.filter(t =>
           Array.isArray(t.participants) && t.participants.includes(member.name)
@@ -2573,7 +2586,9 @@ function TournamentGrid({ tournamentsRef, searchQuery = "" }) {
         const { getDocs, collection, query, orderBy } = await import("firebase/firestore");
         const { database } = await import("../backend/Firebase");
         const q = query(collection(database, "tournaments"), orderBy("number", "asc"));
+        console.log("📖 READ: fetching all tournaments");
         const snap = await getDocs(q);
+        console.log(`📖 READ: received ${snap.docs.length} tournament docs`);
         const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setTournaments(data);
       } catch (e) {
@@ -2607,8 +2622,10 @@ const handleDeleteTournament = async (t) => {
       if (isFinished && t.participants?.length) {
         for (const name of t.participants) {
           const memberRef = doc(database, "members", name);
+          console.log(`📖 READ: fetching member "${name}" for participations decrement`);
           const memberSnap = await getDoc(memberRef);
           if (memberSnap.exists()) {
+            console.log(`✏️ WRITE: decrementing participations for "${name}"`);
             await updateDoc(memberRef, { participations: increment(-1) });
           }
         }
@@ -2623,14 +2640,17 @@ const handleDeleteTournament = async (t) => {
         for (const { field, team } of podium) {
           for (const name of team) {
             const memberRef = doc(database, "members", name);
+            console.log(`📖 READ: fetching member "${name}" for ${field} decrement`);
             const memberSnap = await getDoc(memberRef);
             if (memberSnap.exists()) {
+              console.log(`✏️ WRITE: decrementing ${field} for "${name}"`);
               await updateDoc(memberRef, { [field]: increment(-1) });
             }
           }
         }
       }
 
+      console.log(`✏️ WRITE: deleting tournament doc "${t.id}"`);
       await deleteDoc(doc(database, "tournaments", t.id));
       setTournaments(prev => prev.filter(x => x.id !== t.id));
       setConfirmDelete(null);
