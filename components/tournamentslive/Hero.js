@@ -3326,7 +3326,6 @@ const handleConfirmReactivate = async () => {
       const { database } = await import("@/backend/Firebase");
       console.log(`✏️ WRITE: confirming random member "${member}" to team "${teamId}"`);
       await updateDoc(doc(database, "tournaments", tName, "teams", teamId), { members: arrayUnion(member) });
-      setTeams(prev => prev.map(t => t.id === teamId ? { ...t, members: [...(t.members || []), member] } : t));
       randomRevealRef.current = null;
     } catch (e) { console.error('[Confirm] ERROR:', e.message); alert("Error: " + e.message); }
   };
