@@ -648,6 +648,7 @@ const TCardName = styled.h3`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding-right: 72px;
 `;
 
 const TCardMeta = styled.div`
@@ -2074,7 +2075,8 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "" }) {
   const [members, setMembers] = useState([]);
   const [editingMember, setEditingMember] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
-const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [viewingMember, setViewingMember] = useState(null);
   const { admin: isAdmin } = useStateContext();
   const cardRefs = useRef([]);
 
@@ -2150,7 +2152,7 @@ const [confirmDelete, setConfirmDelete] = useState(null);
     <>
     <MemberGridWrap>
       {filtered.map((m, i) => (
-        <MCard key={m.id} ref={el => { cardRefs.current[i] = el; }} style={{ opacity: 1, transform: "none" }}>
+        <MCard key={m.id} ref={el => { cardRefs.current[i] = el; }} style={{ opacity: 1, transform: "none" }} onClick={(e) => { if (!e.target.closest('button')) setViewingMember(m); }}>
           <MCardScan />
           <CardCorner style={{ top: 0, left: 0 }} />
           <CardCorner style={{ top: 0, right: 0, transform: "scaleX(-1)" }} />
@@ -2255,7 +2257,244 @@ const [confirmDelete, setConfirmDelete] = useState(null);
           onSaved={() => { setEditingMember(null); onRefresh?.(); }}
         />
       )}
+    {viewingMember && (
+        <MemberHistoryModal
+          member={viewingMember}
+          onClose={() => setViewingMember(null)}
+        />
+      )}
     </>
+  );
+}
+
+// ─── Member History Modal ─────────────────────────────────────────────────────
+
+function MemberHistoryModal({ member, onClose }) {
+  const [tournaments, setTournaments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const { getDocs, collection, query, orderBy } = await import("firebase/firestore");
+        const { database } = await import("../backend/Firebase");
+        const q = query(collection(database, "tournaments"), orderBy("number", "asc"));
+        const snap = await getDocs(q);
+        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const participated = all.filter(t =>
+          Array.isArray(t.participants) && t.participants.includes(member.name)
+        );
+        setTournaments(participated);
+      } catch (e) {
+        console.error("Failed to load tournament history:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [member.name]);
+
+  if (!mounted) return null;
+
+  const getRank = (t) => {
+    const inFirst  = Array.isArray(t.firstTeam)  && t.firstTeam.includes(member.name);
+    const inSecond = Array.isArray(t.secondTeam) && t.secondTeam.includes(member.name);
+    const inThird  = Array.isArray(t.thirdTeam)  && t.thirdTeam.includes(member.name);
+    if (inFirst)  return 1;
+    if (inSecond) return 2;
+    if (inThird)  return 3;
+    return null;
+  };
+
+  const isSingleElim = (t) =>
+    t.format && t.format.toLowerCase().includes("single");
+
+  return createPortal(
+    <ModalBackdrop onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <ModalBox style={{ width: "clamp(300px, 92vw, 540px)", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+        <ModalScanLine />
+        <CardCorner style={{ top: 0, left: 0 }} />
+        <CardCorner style={{ top: 0, right: 0, transform: "scaleX(-1)" }} />
+        <CardCorner style={{ bottom: 0, left: 0, transform: "scaleY(-1)" }} />
+        <CardCorner style={{ bottom: 0, right: 0, transform: "scale(-1)" }} />
+
+        <ModalTitle style={{ marginBottom: 6 }}>{member.name}</ModalTitle>
+        <p style={{
+          position: "relative", zIndex: 1,
+          fontFamily: "'Cinzel', serif",
+          fontSize: "0.44rem",
+          letterSpacing: "0.4em",
+          color: "rgba(200,170,110,0.4)",
+          textAlign: "center",
+          textTransform: "uppercase",
+          margin: "0 0 18px",
+        }}>Tournament History</p>
+        <ModalDivider />
+
+        <div style={{ overflowY: "auto", flex: 1, scrollbarWidth: "none" }}>
+          {loading ? (
+            <p style={{
+              fontFamily: "'Cinzel', serif", fontSize: "0.55rem",
+              letterSpacing: "0.3em", color: "rgba(200,170,110,0.35)",
+              textAlign: "center", padding: "32px 0", textTransform: "uppercase",
+            }}>Loading...</p>
+          ) : tournaments.length === 0 ? (
+            <p style={{
+              fontFamily: "'Cinzel', serif", fontSize: "0.55rem",
+              letterSpacing: "0.3em", color: "rgba(200,170,110,0.25)",
+              textAlign: "center", padding: "32px 0", textTransform: "uppercase",
+            }}>No tournaments found</p>
+          ) : tournaments.map((t, i) => {
+            const rank = getRank(t);
+            const single = isSingleElim(t);
+            const showQuestion = rank === null || (single && rank === 3);
+
+            return (
+              <div key={t.id} style={{
+                position: "relative", zIndex: 1,
+                borderBottom: i < tournaments.length - 1 ? "1px solid rgba(200,170,110,0.08)" : "none",
+                padding: "14px 4px",
+                display: "flex",
+                alignItems: "center",
+                gap: "16px",
+              }}>
+                {/* Number badge */}
+                <div style={{
+                  fontFamily: "'Cinzel', serif",
+                  fontSize: "0.5rem",
+                  letterSpacing: "0.15em",
+                  color: "rgba(200,170,110,0.4)",
+                  flexShrink: 0,
+                  width: 28,
+                  textAlign: "center",
+                }}>#{t.number}</div>
+
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontFamily: "'Cinzel', serif",
+                    fontSize: "0.65rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.12em",
+                    color: "#f0e6d2",
+                    textTransform: "uppercase",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    marginBottom: 5,
+                  }}>{t.name}</div>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
+                    <span style={{
+                      fontFamily: "'Cinzel', serif",
+                      fontSize: "0.45rem",
+                      letterSpacing: "0.2em",
+                      color: "rgba(200,170,110,0.4)",
+                      textTransform: "uppercase",
+                    }}>{t.totalParticipants ?? 0} Participants</span>
+                    <span style={{
+                      fontFamily: "'Cinzel', serif",
+                      fontSize: "0.45rem",
+                      letterSpacing: "0.2em",
+                      color: "rgba(200,170,110,0.4)",
+                      textTransform: "uppercase",
+                    }}>{t.totalTeams ?? 0} Teams</span>
+                    <span style={{
+                      fontFamily: "'Cinzel', serif",
+                      fontSize: "0.45rem",
+                      letterSpacing: "0.2em",
+                      color: "rgba(200,170,110,0.35)",
+                      textTransform: "uppercase",
+                    }}>{t.format ?? "—"}</span>
+                  </div>
+                  {t.prizes && t.prizes.trim() && (
+                    <div style={{
+                      fontFamily: "'Cinzel', serif",
+                      fontSize: "0.48rem",
+                      letterSpacing: "0.12em",
+                      lineHeight: 1.7,
+                      color: "rgba(200,170,110,0.6)",
+                      fontStyle: "italic",
+                      borderLeft: "1px solid rgba(200,170,110,0.2)",
+                      paddingLeft: 8,
+                      marginTop: 2,
+                    }}>{t.prizes}</div>
+                  )}
+                </div>
+
+                {/* Rank icon */}
+                <div style={{
+                  flexShrink: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 3,
+                  width: 36,
+                }}>
+                  {showQuestion ? (
+                    <>
+                      <span style={{
+                        fontFamily: "'Cinzel', serif",
+                        fontSize: "1rem",
+                        color: "rgba(200,170,110,0.2)",
+                        lineHeight: 1,
+                      }}>?</span>
+                      <span style={{
+                        fontFamily: "'Cinzel', serif",
+                        fontSize: "0.38rem",
+                        letterSpacing: "0.2em",
+                        color: "rgba(200,170,110,0.2)",
+                        textTransform: "uppercase",
+                      }}>Rank</span>
+                    </>
+                  ) : rank === 1 ? (
+                    <>
+                      <TrophyGold />
+                      <span style={{
+                        fontFamily: "'Cinzel', serif",
+                        fontSize: "0.38rem",
+                        letterSpacing: "0.2em",
+                        color: "#ffe066",
+                        textTransform: "uppercase",
+                        textShadow: "0 0 8px rgba(255,210,50,0.5)",
+                      }}>1st</span>
+                    </>
+                  ) : rank === 2 ? (
+                    <>
+                      <TrophySilver />
+                      <span style={{
+                        fontFamily: "'Cinzel', serif",
+                        fontSize: "0.38rem",
+                        letterSpacing: "0.2em",
+                        color: "#d8d8d8",
+                        textTransform: "uppercase",
+                      }}>2nd</span>
+                    </>
+                  ) : rank === 3 ? (
+                    <>
+                      <TrophyBronze />
+                      <span style={{
+                        fontFamily: "'Cinzel', serif",
+                        fontSize: "0.38rem",
+                        letterSpacing: "0.2em",
+                        color: "#c07040",
+                        textTransform: "uppercase",
+                      }}>3rd</span>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <ModalFooter style={{ marginTop: 16, justifyContent: "center" }}>
+          <ModalBtn $primary onClick={onClose}>Close</ModalBtn>
+        </ModalFooter>
+      </ModalBox>
+    </ModalBackdrop>,
+    document.body
   );
 }
 
