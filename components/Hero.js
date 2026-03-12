@@ -2312,9 +2312,9 @@ function MemberHistoryModal({ member, onClose }) {
   if (!mounted) return null;
 
   const getRank = (t) => {
-    const inFirst  = Array.isArray(t.firstTeam)  && t.firstTeam.includes(member.name);
-    const inSecond = Array.isArray(t.secondTeam) && t.secondTeam.includes(member.name);
-    const inThird  = Array.isArray(t.thirdTeam)  && t.thirdTeam.includes(member.name);
+const inFirst  = t.firstTeam  === member.name;
+const inSecond = t.secondTeam === member.name;
+const inThird  = t.thirdTeam  === member.name;
     if (inFirst)  return 1;
     if (inSecond) return 2;
     if (inThird)  return 3;
@@ -2574,6 +2574,7 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
 
 function TournamentGrid({ tournamentsRef, searchQuery = "" }) {
   const [tournaments, setTournaments] = useState([]);
+  const [refreshKey, setRefreshKey] = useState(0);
   const cardRefs = useRef([]);
   const router = useRouter();
   const { setTournamentName, admin: isAdmin } = useStateContext();
@@ -2590,14 +2591,14 @@ function TournamentGrid({ tournamentsRef, searchQuery = "" }) {
         const snap = await getDocs(q);
         console.log(`📖 READ: received ${snap.docs.length} tournament docs`);
         const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setTournaments(data);
+        setTournaments(data.filter(t => t.name)); // ignore empty/corrupt docs
       } catch (e) {
         console.error("Failed to load tournaments:", e);
         setTournaments([]);
       }
     }
     load();
-  }, []);
+  }, [refreshKey]);
 
   // GSAP card entrance
   useEffect(() => {
@@ -2619,41 +2620,41 @@ const handleDeleteTournament = async (t) => {
 
       const isFinished = t.status !== "ongoing";
 
-      if (isFinished && t.participants?.length) {
-        for (const name of t.participants) {
-          const memberRef = doc(database, "members", name);
-          console.log(`📖 READ: fetching member "${name}" for participations decrement`);
-          const memberSnap = await getDoc(memberRef);
-          if (memberSnap.exists()) {
-            console.log(`✏️ WRITE: decrementing participations for "${name}"`);
-            await updateDoc(memberRef, { participations: increment(-1) });
-          }
-        }
-      }
+if (isFinished && t.participants?.length) {
+  for (const name of t.participants) {
+    if (!name || typeof name !== "string") continue;
+    const memberRef = doc(database, "members", name);
+    console.log(`📖 READ: fetching member "${name}" for participations decrement`);
+    const memberSnap = await getDoc(memberRef);
+    if (memberSnap.exists()) {
+      console.log(`✏️ WRITE: decrementing participations for "${name}"`);
+      await updateDoc(memberRef, { participations: increment(-1) });
+    }
+  }
+}
 
       if (isFinished) {
-        const podium = [
-          { field: "first",  team: t.firstTeam  ?? [] },
-          { field: "second", team: t.secondTeam ?? [] },
-          { field: "third",  team: t.thirdTeam  ?? [] },
-        ];
-        for (const { field, team } of podium) {
-          for (const name of team) {
-            const memberRef = doc(database, "members", name);
-            console.log(`📖 READ: fetching member "${name}" for ${field} decrement`);
-            const memberSnap = await getDoc(memberRef);
-            if (memberSnap.exists()) {
-              console.log(`✏️ WRITE: decrementing ${field} for "${name}"`);
-              await updateDoc(memberRef, { [field]: increment(-1) });
-            }
-          }
-        }
+const podium = [
+  { field: "first",  name: t.firstTeam  ?? "" },
+  { field: "second", name: t.secondTeam ?? "" },
+  { field: "third",  name: t.thirdTeam  ?? "" },
+];
+for (const { field, name } of podium) {
+  if (!name || typeof name !== "string") continue;
+  const memberRef = doc(database, "members", name);
+  console.log(`📖 READ: fetching member "${name}" for ${field} decrement`);
+  const memberSnap = await getDoc(memberRef);
+  if (memberSnap.exists()) {
+    console.log(`✏️ WRITE: decrementing ${field} for "${name}"`);
+    await updateDoc(memberRef, { [field]: increment(-1) });
+  }
+}
       }
 
       console.log(`✏️ WRITE: deleting tournament doc "${t.id}"`);
       await deleteDoc(doc(database, "tournaments", t.id));
-      setTournaments(prev => prev.filter(x => x.id !== t.id));
       setConfirmDelete(null);
+      setRefreshKey(k => k + 1);
     } catch (e) {
       console.error("Failed to delete tournament:", e);
       setConfirmDelete(null);

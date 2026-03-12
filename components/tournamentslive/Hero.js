@@ -1806,21 +1806,15 @@ const MatchHistoryList = styled.div`
 
 const MatchHistoryCard = styled.div`
   display: flex;
-  align-items: center;
-  gap: clamp(6px, 1.5vw, 14px);
+  flex-direction: column;
+  align-items: stretch;
+  gap: clamp(6px, 1.5vw, 10px);
   padding: clamp(8px, 1.8vw, 14px) clamp(8px, 2vw, 16px);
   background: rgba(200,170,110,0.03);
   border: 1px solid rgba(200,170,110,0.13);
   clip-path: polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0% calc(100% - 8px), 0% 8px);
   transition: border-color 0.25s ease, background 0.25s ease;
   position: relative;
-  flex-wrap: wrap;
-
-  @media (max-width: 500px) {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
 
   &:hover {
     border-color: rgba(200,170,110,0.28);
@@ -1829,9 +1823,12 @@ const MatchHistoryCard = styled.div`
 `;
 
 const MatchTeamsDisplay = styled.div`
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
+  width: 100%;
   gap: 0;
+
   flex-shrink: 0;
 
   @media (max-width: 500px) {
@@ -1843,19 +1840,20 @@ const MatchTeamsDisplay = styled.div`
 const MatchTeamBlock = styled.div`
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
-  width: clamp(70px, 17vw, 110px);
+  flex: 1;
 
-  @media (max-width: 500px) {
-    width: clamp(80px, 35vw, 120px);
+  &:last-of-type {
+    flex-direction: row-reverse;
+    text-align: right;
   }
 `;
 
 const MatchTeamBlockName = styled.span`
   font-family: 'Cinzel', serif;
-  font-size: clamp(0.44rem, 1vw, 0.52rem);
-  letter-spacing: 0.06em;
+  font-size: clamp(0.46rem, 1.1vw, 0.58rem);
+  letter-spacing: 0.07em;
   color: ${p => p.$winner ? '#f0e6d2' : 'rgba(200,170,110,0.45)'};
   text-transform: uppercase;
   overflow: hidden;
@@ -1863,27 +1861,29 @@ const MatchTeamBlockName = styled.span`
   white-space: nowrap;
   flex: 1;
   font-weight: ${p => p.$winner ? '700' : '400'};
-  text-shadow: ${p => p.$winner ? '0 0 10px rgba(200,170,110,0.5)' : 'none'};
+  text-shadow: ${p => p.$winner ? '0 0 12px rgba(200,170,110,0.55)' : 'none'};
 `;
 
 const MatchTeamThumb = styled.img`
-  width: clamp(22px, 4.5vw, 28px);
-  height: clamp(22px, 4.5vw, 28px);
+  width: clamp(26px, 5vw, 34px);
+  height: clamp(26px, 5vw, 34px);
   border-radius: 50%;
   object-fit: cover;
-  border: 1px solid ${p => p.$winner ? 'rgba(200,170,110,0.6)' : 'rgba(200,170,110,0.15)'};
+  border: 1px solid ${p => p.$winner ? 'rgba(200,170,110,0.7)' : 'rgba(200,170,110,0.18)'};
   flex-shrink: 0;
-  opacity: ${p => p.$winner === false ? 0.4 : 1};
-  filter: ${p => p.$winner === false ? 'grayscale(0.5)' : 'none'};
-`;
+  opacity: ${p => p.$winner === false ? 0.38 : 1};
+  filter: ${p => p.$winner === false ? 'grayscale(0.6)' : 'none'};
+  box-shadow: ${p => p.$winner ? '0 0 10px rgba(200,170,110,0.35)' : 'none'};
+`;  
 
 const MatchVsSeparator = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   flex-shrink: 0;
-  width: clamp(24px, 5vw, 36px);
+  width: clamp(36px, 7vw, 52px);
+  padding: 0 4px;
 `;
 
 const MatchVsText = styled.div`
@@ -1930,22 +1930,18 @@ const MatchVideoInput = styled.input`
 `;
 
 const MatchRoundBadge = styled.div`
+  width: 100%;
   font-family: 'Cinzel', serif;
-  font-size: clamp(0.3rem, 0.7vw, 0.36rem);
-  letter-spacing: 0.3em;
+  font-size: clamp(0.58rem, 1.3vw, 0.78rem);
+  font-weight: 700;
+  letter-spacing: 0.4em;
   text-transform: uppercase;
-  color: rgba(200,170,110,0.3);
-  white-space: nowrap;
+  color: rgba(200,170,110,0.92);
+  text-shadow: 0 0 14px rgba(200,170,110,0.65), 0 0 30px rgba(200,170,110,0.28);
+  text-align: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(200,170,110,0.18);
   flex-shrink: 0;
-  writing-mode: vertical-lr;
-  transform: rotate(180deg);
-  padding: 4px 0;
-
-  @media (max-width: 500px) {
-    writing-mode: horizontal-tb;
-    transform: none;
-    text-align: right;
-  }
 `;
 
 const EmptyResultsHint = styled.div`
@@ -2856,21 +2852,31 @@ const handleVideoBlur = async (matchId, value) => {
       const participantList = participants?.length ? participants : (tData?.participants ?? []);
 
       // 4. Get all teams and their members to find rank-1, rank-2, rank-3 team members
-      console.log("📖 READ: fetching teams for finalize podium resolution");
-      const teamsSnap = await getDocs(collection(database, "tournaments", tournamentName, "teams"));
-      console.log(`📖 READ: received ${teamsSnap.docs.length} team docs`);
-      const teamDocs = teamsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+const teamDocs = teams;
 
-      const rank1Team = standings.find(t => t.rank === 1);
-      const rank2Team = standings.find(t => t.rank === 2);
-      const rank3Team = standings.find(t => t.rank === 3);
+const isSingleElim = format === "Single-Elimination";
 
-      const rank1Members = teamDocs.find(t => t.id === rank1Team?.id)?.members ?? [];
-      const rank2Members = teamDocs.find(t => t.id === rank2Team?.id)?.members ?? [];
-      const rank3Members = teamDocs.find(t => t.id === rank3Team?.id)?.members ?? [];
+const rank1Team = standings.find(t => t.rank === 1);
+const rank2Team = standings.find(t => t.rank === 2);
+const rank3Team = !isSingleElim ? standings.find(t => t.rank === 3) : null;
 
-      console.log("✏️ WRITE: marking tournament as finished with podium teams");
-      await updateDoc(tRef, { status: "finished", firstTeam: rank1Members, secondTeam: rank2Members, thirdTeam: rank3Members });
+const rank1Members = teamDocs.find(t => t.id === rank1Team?.id)?.members ?? [];
+const rank2Members = teamDocs.find(t => t.id === rank2Team?.id)?.members ?? [];
+const rank3Members = !isSingleElim ? (teamDocs.find(t => t.id === rank3Team?.id)?.members ?? []) : [];
+
+console.log("🏆 Podium resolved:", {
+  rank1: rank1Team?.name, rank1Members,
+  rank2: rank2Team?.name, rank2Members,
+  rank3: rank3Team?.name, rank3Members,
+});
+
+console.log("✏️ WRITE: marking tournament as finished with podium teams");
+await updateDoc(tRef, {
+  status: "finished",
+  firstTeam: rank1Team?.name ?? "",
+  secondTeam: rank2Team?.name ?? "",
+  thirdTeam: !isSingleElim ? (rank3Team?.name ?? "") : "",
+});
       router.push("/");
       // 5. Load all member docs for participants
       console.log("📖 READ: fetching all members to update stats");
@@ -2952,19 +2958,20 @@ const handleVideoBlur = async (matchId, value) => {
               ? <EmptyResultsHint>No completed matches yet</EmptyResultsHint>
               : completedMatches.map(m => (
                 <MatchHistoryCard key={m.id}>
+                  <MatchRoundBadge>{getRoundLabel(m)}</MatchRoundBadge>
                   <MatchTeamsDisplay>
                     <MatchTeamBlock $winner={m.winner === m.team1Id}>
-                      {m.team1Img && <MatchTeamThumb src={m.team1Img} $winner={m.winner === m.team1Id} />}
-                      <MatchTeamBlockName>{m.team1Name}</MatchTeamBlockName>
+                      <MatchTeamThumb src={m.team1Img || "/question.jpg"} $winner={m.winner === m.team1Id} onError={e => { e.target.src = "/question.jpg"; }} />
+                      <MatchTeamBlockName $winner={m.winner === m.team1Id}>{m.team1Name}</MatchTeamBlockName>
                     </MatchTeamBlock>
                     <MatchVsSeparator>
                       <MatchVsLine />
                       <MatchVsText>VS</MatchVsText>
                       <MatchVsLine />
                     </MatchVsSeparator>
-                    <MatchTeamBlock $winner={m.winner === m.team2Id}>
-                      {m.team2Img && <MatchTeamThumb src={m.team2Img} $winner={m.winner === m.team2Id} />}
-                      <MatchTeamBlockName>{m.team2Name}</MatchTeamBlockName>
+                    <MatchTeamBlock $winner={m.winner === m.team2Id} style={{ flexDirection: "row-reverse" }}>
+                      <MatchTeamThumb src={m.team2Img || "/question.jpg"} $winner={m.winner === m.team2Id} onError={e => { e.target.src = "/question.jpg"; }} />
+                      <MatchTeamBlockName $winner={m.winner === m.team2Id} style={{ textAlign: "right" }}>{m.team2Name}</MatchTeamBlockName>
                     </MatchTeamBlock>
                   </MatchTeamsDisplay>
                   <MatchVideoInput
@@ -2973,8 +2980,7 @@ const handleVideoBlur = async (matchId, value) => {
                     onChange={e => setVideoLinks(prev => ({ ...prev, [m.id]: e.target.value }))}
                     onBlur={e => handleVideoBlur(m.id, e.target.value)}
                   />
-                  <MatchRoundBadge>{getRoundLabel(m)}</MatchRoundBadge>
-                </MatchHistoryCard>
+                  </MatchHistoryCard>
               ))
             }
           </MatchHistoryList>
@@ -3159,9 +3165,16 @@ const handleConfirmReactivate = async () => {
       const tData = tSnap.data();
 
       const participantList = tData?.participants ?? [];
-      const firstTeam  = tData?.firstTeam  ?? [];
-      const secondTeam = tData?.secondTeam ?? [];
-      const thirdTeam  = tData?.thirdTeam  ?? [];
+      const firstTeamName  = tData?.firstTeam  ?? "";
+      const secondTeamName = tData?.secondTeam ?? "";
+      const thirdTeamName  = tData?.thirdTeam  ?? "";
+
+      console.log("📖 READ: fetching teams to resolve podium members for stat reversal");
+      const teamsSnap = await getDocs(collection(database, "tournaments", tournamentName, "teams"));
+      const teamsData = teamsSnap.docs.map(d => d.data());
+      const firstTeam  = teamsData.find(t => t.name === firstTeamName)?.members  ?? [];
+      const secondTeam = teamsData.find(t => t.name === secondTeamName)?.members ?? [];
+      const thirdTeam  = teamsData.find(t => t.name === thirdTeamName)?.members  ?? [];
 
       console.log("📖 READ: fetching all members to reverse finalize stats");
       const membersSnap = await getDocs(collection(database, "members"));

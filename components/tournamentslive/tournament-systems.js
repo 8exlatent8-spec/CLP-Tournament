@@ -542,10 +542,49 @@ while (changed) {
 
 
 
+// ─── Bracket Generation: Two-Team Double Elimination ─────────────────────────
+
+export function generateTwoTeamDoubleElim(teams) {
+  const [t1, t2] = [...teams].sort(() => Math.random() - 0.5);
+  let mid = 0;
+  const nid = () => `m${++mid}`;
+
+  const m1 = {
+    id: nid(), round: 1, position: 0, type: 'winner',
+    team1Id: t1.id, team1Name: t1.name, team1Img: t1.imgLink ?? null,
+    team2Id: t2.id, team2Name: t2.name, team2Img: t2.imgLink ?? null,
+    winner: null, status: 'pending', isBye: false, isGhost: false,
+    fromMatch1: null, fromMatch2: null, nextWinnerMatch: null, nextLoserMatch: null,
+  };
+
+  const m2 = {
+    id: nid(), round: 100, position: 0, type: 'grand_final', label: 'Grand Final',
+    team1Id: t1.id, team1Name: t1.name, team1Img: t1.imgLink ?? null,
+    team2Id: t2.id, team2Name: t2.name, team2Img: t2.imgLink ?? null,
+    winner: null, status: 'pending', isBye: false, isGhost: false,
+    fromMatch1: m1.id, fromMatch2: null, nextWinnerMatch: null, nextLoserMatch: null,
+    twoTeamGrandFinal: true, gatedByMatch: m1.id, wbMatchId: m1.id,
+  };
+  m1.nextWinnerMatch = m2.id;
+
+  const m3 = {
+    id: nid(), round: 101, position: 0, type: 'placement', label: 'Bracket Reset',
+    team1Id: t1.id, team1Name: t1.name, team1Img: t1.imgLink ?? null,
+    team2Id: t2.id, team2Name: t2.name, team2Img: t2.imgLink ?? null,
+    winner: null, status: 'pending', isBye: false, isGhost: true,
+    fromMatch1: m2.id, fromMatch2: null, nextWinnerMatch: null, nextLoserMatch: null,
+    twoTeamReset: true, gatedByMatch: m2.id,
+  };
+  m2.nextWinnerMatch = m3.id;
+
+  return [m1, m2, m3];
+}
+
 // ─── Bracket Generation: Double Elimination ──────────────────────────────────
 
 export function generateDoubleElimBracket(teams) {
   if (!teams || teams.length < 2) return [];
+  if (teams.length === 2) return generateTwoTeamDoubleElim(teams);
   const shuffled = [...teams].sort(() => Math.random() - 0.5);
   const totalSlots = Math.pow(2, Math.ceil(Math.log2(Math.max(shuffled.length, 2))));
 
@@ -694,21 +733,32 @@ while (changed) {
 
   for (let wbR = 2; wbR <= maxWR; wbR++) {
     const dropIns = wbRealByRound(wbR).filter(m => !m.isGhost && !m.isBye);
-    if (dropIns.length > 0) {
-      const newSlots = [];
-      const realSlots = lbSlots.filter(s => s.type === 'match');
-      const byeSlots  = lbSlots.filter(s => s.type === 'bye');
-      const pairCount = Math.min(realSlots.length, dropIns.length);
-      for (let i = 0; i < pairCount; i++) {
-        const lbm = addLBMatch(newSlots.length, realSlots[i], { type: 'match', matchId: dropIns[i].id, srcSlot: 'loser' });
-        newSlots.push({ type: 'match', matchId: lbm.id, srcSlot: 'winner' });
-      }
-      for (let i = pairCount; i < realSlots.length; i++) newSlots.push({ type: 'bye', srcMatchId: realSlots[i].matchId, srcSlot: 'winner' });
-      for (let i = pairCount; i < dropIns.length; i++) newSlots.push({ type: 'bye', srcMatchId: dropIns[i].id, srcSlot: 'loser' });
-      newSlots.push(...byeSlots);
-      lbSlots = newSlots;
-      lbRoundNum++;
-    }
+if (dropIns.length > 0) {
+  const newSlots = [];
+  const realSlots = lbSlots.filter(s => s.type === 'match');
+  const byeSlots  = lbSlots.filter(s => s.type === 'bye');
+
+  // Pair real LB match winners with WB drop-in losers
+  const pairCount = Math.min(realSlots.length, dropIns.length);
+  for (let i = 0; i < pairCount; i++) {
+    const lbm = addLBMatch(newSlots.length, realSlots[i], { type: 'match', matchId: dropIns[i].id, srcSlot: 'loser' });
+    newSlots.push({ type: 'match', matchId: lbm.id, srcSlot: 'winner' });
+  }
+  for (let i = pairCount; i < realSlots.length; i++) newSlots.push({ type: 'bye', srcMatchId: realSlots[i].matchId, srcSlot: 'winner' });
+
+  // Remaining drop-ins pair with waiting bye slots (losers from earlier WB rounds)
+  const remainingDropIns = dropIns.slice(pairCount);
+  const byePairCount = Math.min(byeSlots.length, remainingDropIns.length);
+  for (let i = 0; i < byePairCount; i++) {
+    const lbm = addLBMatch(newSlots.length, byeSlots[i], { type: 'match', matchId: remainingDropIns[i].id, srcSlot: 'loser' });
+    newSlots.push({ type: 'match', matchId: lbm.id, srcSlot: 'winner' });
+  }
+  for (let i = byePairCount; i < remainingDropIns.length; i++) newSlots.push({ type: 'bye', srcMatchId: remainingDropIns[i].id, srcSlot: 'loser' });
+  for (let i = byePairCount; i < byeSlots.length; i++) newSlots.push(byeSlots[i]);
+
+  lbSlots = newSlots;
+  lbRoundNum++;
+}
 
     const realSlots = lbSlots.filter(s => s.type === 'match');
     const byeSlots  = lbSlots.filter(s => s.type === 'bye');
@@ -920,8 +970,19 @@ console.log(`📖 [Firestore READ] tournaments/${tournamentName}/matches — ${s
     };
 
     let updated = matches.map(m => m.id !== match.id ? m : { ...m, winner: winnerId, status: 'complete' });
-    updated = propagate(updated, match.id, winnerId, 'winner');
-    updated = propagate(updated, match.id, loserId, 'loser');
+
+    if (!match.twoTeamGrandFinal && !match.twoTeamReset) {
+      updated = propagate(updated, match.id, winnerId, 'winner');
+      updated = propagate(updated, match.id, loserId, 'loser');
+    }
+
+    if (match.twoTeamGrandFinal) {
+      const wbMatch = updated.find(x => x.id === match.wbMatchId);
+      if (wbMatch) {
+        const resetNeeded = winnerId !== wbMatch.winner;
+        updated = updated.map(m => m.twoTeamReset ? { ...m, isGhost: !resetNeeded } : m);
+      }
+    }
     // Don't call setMatches here — the onSnapshot listener will update state
 
     try {
@@ -932,7 +993,8 @@ console.log(`📖 [Firestore READ] tournaments/${tournamentName}/matches — ${s
         updated.filter((u) => {
           const orig = matches.find(m => m.id === u.id);
           return !orig || u.winner !== orig.winner || u.status !== orig.status ||
-                 u.team1Id !== orig.team1Id || u.team2Id !== orig.team2Id;
+                 u.team1Id !== orig.team1Id || u.team2Id !== orig.team2Id ||
+                 u.isGhost !== orig.isGhost;
         }).map(u => u.id)
       );
       const batch = writeBatch(database);
@@ -957,17 +1019,23 @@ console.log(`📖 [Firestore READ] tournaments/${tournamentName}/matches — ${s
       const m = list.find(x => x.id === matchId);
       if (!m) return list;
       list = list.map(x => x.id !== matchId ? x : { ...x, winner: null, status: 'pending' });
+      if (m.twoTeamGrandFinal) {
+        list = list.map(x => x.twoTeamReset ? { ...x, winner: null, status: 'pending', isGhost: true } : x);
+        return list;
+      }
       for (const [nextId] of [[m.nextWinnerMatch], [m.nextLoserMatch]]) {
         if (!nextId) continue;
         const next = list.find(x => x.id === nextId);
         if (!next) continue;
-        const f1 = next.fromMatch1 === matchId;
-        list = list.map(x => {
-          if (x.id !== nextId) return x;
-          return f1
-            ? { ...x, team1Id: null, team1Name: null, team1Img: null }
-            : { ...x, team2Id: null, team2Name: null, team2Img: null };
-        });
+        if (!next.twoTeamGrandFinal && !next.twoTeamReset) {
+          const f1 = next.fromMatch1 === matchId;
+          list = list.map(x => {
+            if (x.id !== nextId) return x;
+            return f1
+              ? { ...x, team1Id: null, team1Name: null, team1Img: null }
+              : { ...x, team2Id: null, team2Name: null, team2Img: null };
+          });
+        }
         if (next.winner) list = collectAffected(nextId, list, visited);
       }
       return list;
@@ -984,7 +1052,8 @@ console.log(`📖 [Firestore READ] tournaments/${tournamentName}/matches — ${s
         updated.filter((u) => {
           const orig = matches.find(m => m.id === u.id);
           return !orig || u.winner !== orig.winner || u.status !== orig.status ||
-                 u.team1Id !== orig.team1Id || u.team2Id !== orig.team2Id;
+                 u.team1Id !== orig.team1Id || u.team2Id !== orig.team2Id ||
+                 u.isGhost !== orig.isGhost;
         }).map(u => u.id)
       );
       const batch = writeBatch(database);
@@ -1161,7 +1230,8 @@ console.log(`📖 [Firestore READ] tournaments/${tournamentName}/matches — ${s
     const isComplete = m.status === 'complete';
     const hasTeam1 = m.team1Id && m.team1Id !== 'bye';
     const hasTeam2 = m.team2Id && m.team2Id !== 'bye';
-    const isClickable = hasTeam1 && hasTeam2;
+    const gated = m.gatedByMatch ? matches.find(x => x.id === m.gatedByMatch)?.status !== 'complete' : false;
+    const isClickable = hasTeam1 && hasTeam2 && !gated;
 
     const Slot = ({ team, teamId, isWinner, isBye }) => {
       const isLoser = isComplete && !isWinner && teamId && teamId !== 'bye';
@@ -1323,11 +1393,11 @@ console.log(`📖 [Firestore READ] tournaments/${tournamentName}/matches — ${s
             </>
           )}
 
-          {(gfMs.length > 0 || plMs.length > 0) && (
+          {(gfMs.some(m => !m.isGhost) || plMs.some(m => !m.isGhost)) && (
             <BracketSectionLabel style={{ left: GF_X, top: GF_Y - 56 }}>Finals</BracketSectionLabel>
           )}
-          {gfMs.map(m => renderCard(m, gfPos(), { isSpecial: true, accentColor: 'rgba(240,200,80,0.6)' }))}
-          {plMs.map(m => renderCard(m, plPos(), { isSpecial: true }))}
+          {gfMs.filter(m => !m.isGhost).map(m => renderCard(m, gfPos(), { isSpecial: true, accentColor: 'rgba(240,200,80,0.6)' }))}
+          {plMs.filter(m => !m.isGhost).map(m => renderCard(m, plPos(), { isSpecial: true }))}
         </BracketInner>
         <BracketZoomHint>scroll to zoom · drag to pan · click match to pick winner</BracketZoomHint>
       <div style={{
