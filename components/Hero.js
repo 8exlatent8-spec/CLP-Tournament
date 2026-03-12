@@ -1623,7 +1623,7 @@ setTimeout(() => { onAdded(); onClose(); setTournamentName(newRef.id); router.pu
         </ModalField>
 
         <ParticipantsBox>
-          <ParticipantsLabel>Participants</ParticipantsLabel>
+          <ParticipantsLabel>Participants {selected.size > 0 && <span style={{ color: "rgba(200,170,110,0.75)", fontFamily: "'Cinzel', serif" }}>({selected.size})</span>}</ParticipantsLabel>
           <ParticipantsContainer>
             <ParticipantsSearchWrap>
               <ParticipantsSearchIcon>
@@ -1659,7 +1659,7 @@ setTimeout(() => { onAdded(); onClose(); setTournamentName(newRef.id); router.pu
               ))}
             </ParticipantsList>
           </ParticipantsContainer>
-          <ParticipantCount>{selected.size} selected</ParticipantCount>
+          <ParticipantCount style={{ opacity: 0 }} aria-hidden="true">&nbsp;</ParticipantCount>
         </ParticipantsBox>
 
         {error   && <ModalError>{error}</ModalError>}
