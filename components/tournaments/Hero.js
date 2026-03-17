@@ -799,9 +799,18 @@ function BgDecoSVG({ ringRefs }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+function useButtonSound() {
+  const play = () => {
+    const audio = new Audio("/buttonClick.wav");
+    audio.play().catch(() => {});
+  };
+  return play;
+}
+
 export default function Hero() {
   const router = useRouter();
   const { tournamentName, isLoading } = useStateContext();
+  const playClick = useButtonSound();
   const [teams, setTeams] = useState([]);
   const [standings, setStandings] = useState([]);
   const [format, setFormat] = useState("Double-Elimination");
@@ -1023,7 +1032,7 @@ export default function Hero() {
 
       {/* ── back button ── */}
       <BackBar>
-        <BackBtn ref={backBtnRef} onClick={handleBack}>
+        <BackBtn ref={backBtnRef} onClick={() => { playClick(); handleBack(); }}>
           <BackLabel>Back</BackLabel>
           <BackUnderline />
         </BackBtn>
@@ -1039,7 +1048,7 @@ export default function Hero() {
                 key={team.id}
                 $rank={team.rank}
                 $active={selectedTeam?.id === team.id}
-                onClick={() => setSelectedTeam(prev => prev?.id === team.id ? null : team)}
+                onClick={() => { playClick(); setSelectedTeam(prev => prev?.id === team.id ? null : team); }}
               >
                 <LeaderboardRank $rank={team.rank} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {rankIcon(team.rank)}

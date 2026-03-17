@@ -397,7 +397,7 @@ export function CardCornerBracket({ style }) {
 
 // ─── Pick Winner Modal Component ──────────────────────────────────────────────
 
-export function PickWinnerModal({ match, teamMap, onClose, onPickWinner, onUndecided }) {
+export function PickWinnerModal({ match, teamMap, onClose, onPickWinner, onUndecided, playClick = () => {} }) {
   const resolveTeam = (id, name, img) => {
     if (!id || id === 'bye') return null;
     const t = teamMap[id];
@@ -426,7 +426,7 @@ export function PickWinnerModal({ match, teamMap, onClose, onPickWinner, onUndec
         <PickWinnerDivider />
 
         {options.map(team => (
-          <PickWinnerOption key={team.id} onClick={() => onPickWinner(match, team.id)}>
+          <PickWinnerOption key={team.id} onClick={() => { playClick(); onPickWinner(match, team.id); }}>
             <PickWinnerOptionImg
               src={team.img || '/question.jpg'}
               alt={team.name}
@@ -439,7 +439,7 @@ export function PickWinnerModal({ match, teamMap, onClose, onPickWinner, onUndec
 
         {match.status === 'complete' && (
           <PickWinnerOption
-            onClick={() => onUndecided(match)}
+            onClick={() => { playClick(); onUndecided(match); }}
             style={{ borderColor: 'rgba(200,80,80,0.3)', marginTop: 10 }}
           >
             <span style={{ fontSize: '1.1rem', marginRight: 2, color: 'rgba(220,100,100,0.85)' }}>↩</span>
@@ -449,7 +449,7 @@ export function PickWinnerModal({ match, teamMap, onClose, onPickWinner, onUndec
           </PickWinnerOption>
         )}
 
-        <PickWinnerCancel onClick={onClose}>Cancel</PickWinnerCancel>
+        <PickWinnerCancel onClick={() => { playClick(); onClose(); }}>Cancel</PickWinnerCancel>
       </PickWinnerBox>
     </PickWinnerBackdrop>
   );
@@ -824,7 +824,16 @@ if (dropIns.length > 0) {
 
 // ─── BracketView Component ────────────────────────────────────────────────────
 
+function useButtonSound() {
+  const play = () => {
+    const audio = new Audio("/buttonClick.wav");
+    audio.play().catch(() => {});
+  };
+  return play;
+}
+
 export function BracketView({ teams, tournamentName, onCompletionChange, format = "Double-Elimination", readOnly = false }) {
+  const playClick = useButtonSound();
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [teamMap, setTeamMap] = useState({});
@@ -1267,11 +1276,10 @@ console.log(`📖 [Firestore READ] tournaments/${tournamentName}/matches — ${s
         onClick={() => {
           if (didPan.current) return;
           if (readOnly) {
-            console.log("Match clicked:", m.id, "videoLink:", m.videoLink);
             const link = m.videoLink;
-            if (link) window.open(link.startsWith('http') ? link : `https://${link}`, "_blank", "noopener,noreferrer");
+            if (link) { playClick(); window.open(link.startsWith('http') ? link : `https://${link}`, "_blank", "noopener,noreferrer"); }
           } else {
-            if (isClickable) setPickingMatch(m);
+            if (isClickable) { playClick(); setPickingMatch(m); }
           }
         }}
         title={readOnly
@@ -1411,6 +1419,7 @@ console.log(`📖 [Firestore READ] tournaments/${tournamentName}/matches — ${s
             onMouseDown={e => e.stopPropagation()}
             onClick={e => {
               e.stopPropagation();
+              playClick();
               const el = containerRef.current;
               if (!el) return;
               const rect = el.getBoundingClientRect();
@@ -1443,6 +1452,7 @@ console.log(`📖 [Firestore READ] tournaments/${tournamentName}/matches — ${s
           onMouseDown={e => e.stopPropagation()}
           onClick={e => {
             e.stopPropagation();
+            playClick();
             setScale(getInitialScale());
             setPan({ x: 40, y: 80 });
           }}
@@ -1473,6 +1483,7 @@ console.log(`📖 [Firestore READ] tournaments/${tournamentName}/matches — ${s
           onClose={() => setPickingMatch(null)}
           onPickWinner={handlePickWinner}
           onUndecided={handleUndecideMatch}
+          playClick={playClick}
         />
       )}
     </>

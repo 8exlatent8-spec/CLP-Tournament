@@ -1460,7 +1460,7 @@ const ParticipantCount = styled.div`
 
 // ─── Add Member Modal Component ───────────────────────────────────────────────
 
-function AddTournamentModal({ onClose, onAdded }) {
+function AddTournamentModal({ onClose, onAdded, playClick = () => {} }) {
   const router = useRouter();
   const { setTournamentName } = useStateContext();
   const [form, setForm] = useState({ name: "", prizes: "", format: "Double-Elimination" });
@@ -1574,7 +1574,7 @@ setTimeout(() => { onAdded(); onClose(); setTournamentName(newRef.id); router.pu
             {formatOptions.map((fmt, i) => (
               <button
                 key={fmt}
-                onClick={() => setForm(f => ({ ...f, format: fmt }))}
+                onClick={() => { playClick(); setForm(f => ({ ...f, format: fmt })); }}
                 style={{
                   flex: 1,
                   fontFamily: "'Cinzel', serif",
@@ -1666,8 +1666,8 @@ setTimeout(() => { onAdded(); onClose(); setTournamentName(newRef.id); router.pu
         {success && <ModalSuccess>Tournament started!</ModalSuccess>}
 
         <ModalFooter>
-          <ModalBtn onClick={onClose} disabled={loading}>Cancel</ModalBtn>
-          <ModalBtn $primary onClick={handleStart} disabled={loading}>
+          <ModalBtn onClick={() => { playClick(); onClose(); }} disabled={loading}>Cancel</ModalBtn>
+          <ModalBtn $primary onClick={() => { playClick(); handleStart(); }} disabled={loading}>
             {loading ? "Starting..." : "Start"}
           </ModalBtn>
         </ModalFooter>
@@ -1677,7 +1677,7 @@ setTimeout(() => { onAdded(); onClose(); setTournamentName(newRef.id); router.pu
   );
 }
 
-function AddMemberModal({ onClose, onAdded }) {
+function AddMemberModal({ onClose, onAdded, playClick = () => {} }) {
   const [form, setForm] = useState({
     name: "", imglink: "", participations: 0, first: 0, second: 0, third: 0,
   });
@@ -1805,8 +1805,8 @@ function AddMemberModal({ onClose, onAdded }) {
         {success && <ModalSuccess>Member added!</ModalSuccess>}
 
         <ModalFooter>
-          <ModalBtn onClick={onClose} disabled={loading}>Cancel</ModalBtn>
-          <ModalBtn $primary onClick={handleAdd} disabled={loading}>
+          <ModalBtn onClick={() => { playClick(); onClose(); }} disabled={loading}>Cancel</ModalBtn>
+          <ModalBtn $primary onClick={() => { playClick(); handleAdd(); }} disabled={loading}>
             {loading ? "Adding..." : "Add"}
           </ModalBtn>
         </ModalFooter>
@@ -1818,7 +1818,7 @@ function AddMemberModal({ onClose, onAdded }) {
 
 // ─── Edit Member Modal Component ─────────────────────────────────────────────
 
-function EditMemberModal({ member, onClose, onSaved }) {
+function EditMemberModal({ member, onClose, onSaved, playClick = () => {} }) {
   const [form, setForm] = useState({
     name:           member.name        ?? "",
     imglink:        member.imglink     ?? "",
@@ -1943,8 +1943,8 @@ return createPortal(
         {success && <ModalSuccess>Saved!</ModalSuccess>}
 
         <ModalFooter>
-          <ModalBtn onClick={onClose} disabled={loading}>Cancel</ModalBtn>
-          <ModalBtn $primary onClick={handleSave} disabled={loading}>
+          <ModalBtn onClick={() => { playClick(); onClose(); }} disabled={loading}>Cancel</ModalBtn>
+          <ModalBtn $primary onClick={() => { playClick(); handleSave(); }} disabled={loading}>
             {loading ? "Saving..." : "Save"}
           </ModalBtn>
         </ModalFooter>
@@ -2079,7 +2079,7 @@ function cleanImgUrl(url = "") {
   return match ? "https://" + match[1] : url;
 }
 
-function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "" }) {
+function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "", playClick = () => {} }) {
   const [members, setMembers] = useState([]);
   const [editingMember, setEditingMember] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -2163,7 +2163,7 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "" }) {
     <>
     <MemberGridWrap>
       {filtered.map((m, i) => (
-        <MCard key={m.id} ref={el => { cardRefs.current[i] = el; }} style={{ opacity: 1, transform: "none" }} onClick={(e) => { if (!e.target.closest('button')) setViewingMember(m); }}>
+        <MCard key={m.id} ref={el => { cardRefs.current[i] = el; }} style={{ opacity: 1, transform: "none" }} onClick={(e) => { if (!e.target.closest('button')) { playClick(); setViewingMember(m); } }}>
           <MCardScan />
           <CardCorner style={{ top: 0, left: 0 }} />
           <CardCorner style={{ top: 0, right: 0, transform: "scaleX(-1)" }} />
@@ -2175,7 +2175,7 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "" }) {
             {isAdmin && (
               <>
 <DeleteBtn
-  onClick={() => setConfirmDelete(m)}
+  onClick={() => { playClick(); setConfirmDelete(m); }}
   disabled={deletingId === m.id}
 >
                   {deletingId === m.id ? (
@@ -2195,7 +2195,7 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "" }) {
                   )}
                 </DeleteBtn>
                 <EditBtn
-                  onClick={() => setEditingMember(m)}
+                  onClick={() => { playClick(); setEditingMember(m); }}
                   disabled={deletingId === m.id}
                 >
                   <svg viewBox="0 0 16 16" width="12" height="12" fill="none">
@@ -2259,6 +2259,7 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "" }) {
           message={`Delete "${confirmDelete.name}"?`}
           onConfirm={() => handleDelete(confirmDelete)}
           onCancel={() => setConfirmDelete(null)}
+          playClick={playClick}
         />
       )}
     {editingMember && (
@@ -2266,12 +2267,14 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "" }) {
           member={editingMember}
           onClose={() => setEditingMember(null)}
           onSaved={() => { setEditingMember(null); onRefresh?.(); }}
+          playClick={playClick}
         />
       )}
     {viewingMember && (
         <MemberHistoryModal
           member={viewingMember}
           onClose={() => setViewingMember(null)}
+          playClick={playClick}
         />
       )}
     </>
@@ -2280,7 +2283,7 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "" }) {
 
 // ─── Member History Modal ─────────────────────────────────────────────────────
 
-function MemberHistoryModal({ member, onClose }) {
+function MemberHistoryModal({ member, onClose, playClick = () => {} }) {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -2503,7 +2506,7 @@ const inThird  = t.thirdTeam  === member.name;
         </div>
 
         <ModalFooter style={{ marginTop: 16, justifyContent: "center" }}>
-          <ModalBtn $primary onClick={onClose}>Close</ModalBtn>
+          <ModalBtn $primary onClick={() => { playClick(); onClose(); }}>Close</ModalBtn>
         </ModalFooter>
       </ModalBox>
     </ModalBackdrop>,
@@ -2526,7 +2529,7 @@ function CardCorner({ style }) {
 // ─── Tournament grid component ────────────────────────────────────────────────
 
 
-function ConfirmModal({ message, onConfirm, onCancel }) {
+function ConfirmModal({ message, onConfirm, onCancel, playClick = () => {} }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
@@ -2558,8 +2561,8 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
         </p>
 
         <ModalFooter style={{ justifyContent: "center", gap: 14 }}>
-          <ModalBtn onClick={onCancel}>Cancel</ModalBtn>
-          <ModalBtn $primary onClick={onConfirm} style={{
+          <ModalBtn onClick={() => { playClick(); onCancel(); }}>Cancel</ModalBtn>
+          <ModalBtn $primary onClick={() => { playClick(); onConfirm(); }} style={{
             borderColor: "rgba(220,80,60,0.6)",
             color: "#ffaaaa",
             background: "rgba(200,60,40,0.1)",
@@ -2572,7 +2575,7 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
 }
 
 
-function TournamentGrid({ tournamentsRef, searchQuery = "" }) {
+function TournamentGrid({ tournamentsRef, searchQuery = "", playClick = () => {} }) {
   const [tournaments, setTournaments] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const cardRefs = useRef([]);
@@ -2620,43 +2623,47 @@ const handleDeleteTournament = async (t) => {
 
       const isFinished = t.status !== "ongoing";
 
-if (isFinished && t.participants?.length) {
-  for (const name of t.participants) {
-    if (!name || typeof name !== "string") continue;
-    const memberRef = doc(database, "members", name);
-    console.log(`📖 READ: fetching member "${name}" for participations decrement`);
-    const memberSnap = await getDoc(memberRef);
-    if (memberSnap.exists()) {
-      console.log(`✏️ WRITE: decrementing participations for "${name}"`);
-      await updateDoc(memberRef, { participations: increment(-1) });
-    }
-  }
-}
-
-      if (isFinished) {
-const podium = [
-  { field: "first",  name: t.firstTeam  ?? "" },
-  { field: "second", name: t.secondTeam ?? "" },
-  { field: "third",  name: t.thirdTeam  ?? "" },
-];
-for (const { field, name } of podium) {
-  if (!name || typeof name !== "string") continue;
-  const memberRef = doc(database, "members", name);
-  console.log(`📖 READ: fetching member "${name}" for ${field} decrement`);
-  const memberSnap = await getDoc(memberRef);
-  if (memberSnap.exists()) {
-    console.log(`✏️ WRITE: decrementing ${field} for "${name}"`);
-    await updateDoc(memberRef, { [field]: increment(-1) });
-  }
-}
-      }
-
+      // Delete the tournament FIRST — if this fails, no stats are touched
       console.log(`✏️ WRITE: deleting tournament doc "${t.id}"`);
       await deleteDoc(doc(database, "tournaments", t.id));
+
+      // Only update stats after confirmed deletion
+      if (isFinished && t.participants?.length) {
+        for (const name of t.participants) {
+          if (!name || typeof name !== "string") continue;
+          const memberRef = doc(database, "members", name);
+          console.log(`📖 READ: fetching member "${name}" for participations decrement`);
+          const memberSnap = await getDoc(memberRef);
+          if (memberSnap.exists()) {
+            console.log(`✏️ WRITE: decrementing participations for "${name}"`);
+            await updateDoc(memberRef, { participations: increment(-1) });
+          }
+        }
+      }
+
+      if (isFinished) {
+        const podium = [
+          { field: "first",  name: t.firstTeam  ?? "" },
+          { field: "second", name: t.secondTeam ?? "" },
+          { field: "third",  name: t.thirdTeam  ?? "" },
+        ];
+        for (const { field, name } of podium) {
+          if (!name || typeof name !== "string") continue;
+          const memberRef = doc(database, "members", name);
+          console.log(`📖 READ: fetching member "${name}" for ${field} decrement`);
+          const memberSnap = await getDoc(memberRef);
+          if (memberSnap.exists()) {
+            console.log(`✏️ WRITE: decrementing ${field} for "${name}"`);
+            await updateDoc(memberRef, { [field]: increment(-1) });
+          }
+        }
+      }
+
       setConfirmDelete(null);
       setRefreshKey(k => k + 1);
     } catch (e) {
       console.error("Failed to delete tournament:", e);
+      alert(`Error deleting tournament: ${e.message}`);
       setConfirmDelete(null);
     }
   };
@@ -2712,12 +2719,13 @@ for (const { field, name } of podium) {
 
 <TCardFooter>
   {isAdmin && (
-    <DeleteTournamentBtn onClick={() => setConfirmDelete(t)}>
+    <DeleteTournamentBtn onClick={() => { playClick(); setConfirmDelete(t); }}>
       Delete
     </DeleteTournamentBtn>
   )}
-  {t.status === "ongoing" && isAdmin ? (
+  { t.status === "ongoing" && isAdmin ? (
     <TCardBtn onClick={() => {
+      playClick();
       setTournamentName(t.id);
       router.push("/tournamentslive");
     }}>Continue</TCardBtn>
@@ -2726,6 +2734,7 @@ for (const { field, name } of podium) {
       {isAdmin && (
         <TCardBtn
           onClick={() => {
+            playClick();
             setTournamentName(t.id);
             router.push("/tournamentslive");
           }}
@@ -2735,6 +2744,7 @@ for (const { field, name } of podium) {
         </TCardBtn>
       )}
       <TCardBtn onClick={() => {
+        playClick();
         setTournamentName(t.id);
         router.push("/tournaments");
       }}>Details</TCardBtn>
@@ -2750,6 +2760,7 @@ for (const { field, name } of podium) {
         message={`Delete "${confirmDelete.name}"? All participant stats will be updated.`}
         onConfirm={() => handleDeleteTournament(confirmDelete)}
         onCancel={() => setConfirmDelete(null)}
+        playClick={playClick}
       />
     )}
     </>
@@ -3119,7 +3130,16 @@ function useTabFlash(btnRefs) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+function useButtonSound() {
+  const play = () => {
+    const audio = new Audio("/buttonClick.wav");
+    audio.play().catch(() => {});
+  };
+  return play;
+}
+
 export default function Hero() {
+  const playClick = useButtonSound();
   const [activeTab, setActiveTab] = useState("tournaments");
   const [showTournamentModal, setShowTournamentModal] = useState(false);
   const [showMemberModal, setShowMemberModal]         = useState(false);
@@ -3160,6 +3180,7 @@ export default function Hero() {
 
   const handleTab = (tab, idx) => {
     if (tab === activeTab) return;
+    playClick();
     flashTab(idx);
     setActiveTab(tab);
   };
@@ -3234,13 +3255,13 @@ export default function Hero() {
           {/* Tournaments panel */}
           <TabPanel style={{ justifyContent: "flex-start", paddingTop: "90px", gap: "0", alignItems: "center", padding: "90px 5% 48px" }}>
             <SectionTitle>Active Tournaments</SectionTitle>
-            <TournamentGrid tournamentsRef={tournamentsGridRef} searchQuery={tournamentSearch} />
+            <TournamentGrid tournamentsRef={tournamentsGridRef} searchQuery={tournamentSearch} playClick={playClick} />
           </TabPanel>
 
 {/* Members panel */}
 <TabPanel style={{ justifyContent: "flex-start", paddingTop: "90px", alignItems: "center", padding: "90px 5% 48px" }}>
   <SectionTitle>Guild Members</SectionTitle>
-  <MemberGrid refreshKey={memberRefreshKey} onRefresh={() => setMemberRefreshKey(k => k + 1)} searchQuery={memberSearch} />
+  <MemberGrid refreshKey={memberRefreshKey} onRefresh={() => setMemberRefreshKey(k => k + 1)} searchQuery={memberSearch} playClick={playClick} />
 </TabPanel>
         </SlideTrack>
       </ContentArea>
@@ -3249,12 +3270,14 @@ export default function Hero() {
         <AddTournamentModal
           onClose={() => setShowTournamentModal(false)}
           onAdded={() => { setShowTournamentModal(false); }}
+          playClick={playClick}
         />
       )}
       {showMemberModal && (
         <AddMemberModal
           onClose={() => setShowMemberModal(false)}
           onAdded={() => { setMemberRefreshKey(k => k + 1); }}
+          playClick={playClick}
         />
       )}
 
@@ -3275,7 +3298,7 @@ export default function Hero() {
         </SearchOuter>
         <SearchUnderline />
         {isAdmin && (
-          <PlusBtn onClick={() => setShowTournamentModal(true)}>+</PlusBtn>
+          <PlusBtn onClick={() => { playClick(); setShowTournamentModal(true); }}>+</PlusBtn>
         )}
       </SearchWrap>
 
@@ -3295,7 +3318,7 @@ export default function Hero() {
         </SearchOuter>
         <SearchUnderline />
         {isAdmin && (
-          <PlusBtn onClick={() => setShowMemberModal(true)}>+</PlusBtn>
+          <PlusBtn onClick={() => { playClick(); setShowMemberModal(true); }}>+</PlusBtn>
         )}
       </SearchWrap>
 

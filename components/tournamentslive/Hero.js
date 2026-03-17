@@ -2073,7 +2073,7 @@ const EditButtonGroup = styled.div`
 
 const RUNE_CHARS = ["ᚠ","ᚢ","ᚦ","ᚨ","ᚱ","ᚲ","ᚷ","ᚹ","ᚺ","ᚾ","ᛁ","ᛃ","ᛇ","ᛈ","ᛉ","ᛊ","ᛏ","ᛒ","ᛖ","ᛗ"];
 
-function RandomRevealOverlay({ member, imgSrc, onDismiss, onConfirm }) {
+function RandomRevealOverlay({ member, imgSrc, onDismiss, onConfirm, playClick = () => {} }) {
   const rootRef         = useRef(null);
   const darkBgRef       = useRef(null);
   const canvasRef       = useRef(null);
@@ -2380,8 +2380,8 @@ function RandomRevealOverlay({ member, imgSrc, onDismiss, onConfirm }) {
           </RevealCardInner>
 
           {/* Buttons sit outside the 3D inner so they don't flip */}
-          <RevealDismissBtn ref={dismissBtnRef} onClick={e => { e.stopPropagation(); triggerDismiss(); }}>Dismiss</RevealDismissBtn>
-          <RevealAddBtn ref={addBtnRef} onClick={e => { e.stopPropagation(); triggerConfirm(); }}>Add to Team</RevealAddBtn>
+          <RevealDismissBtn ref={dismissBtnRef} onClick={e => { e.stopPropagation(); playClick(); triggerDismiss(); }}>Dismiss</RevealDismissBtn>
+          <RevealAddBtn ref={addBtnRef} onClick={e => { e.stopPropagation(); playClick(); triggerConfirm(); }}>Add to Team</RevealAddBtn>
         </RevealCardScene>
 
       </RevealRoot>
@@ -2401,7 +2401,7 @@ function CardCorner({ style }) {
   );
 }
 
-function EditTeamModalComponent({ team, onClose, onSave }) {
+function EditTeamModalComponent({ team, onClose, onSave, playClick = () => {} }) {
   const [teamName, setTeamName] = useState(team?.name || "");
   const [imgLink, setImgLink]   = useState(team?.imgLink || "");
   const [nameError, setNameError] = useState("");
@@ -2432,8 +2432,8 @@ function EditTeamModalComponent({ team, onClose, onSave }) {
           <ModalInput type="text" placeholder="https://..." value={imgLink} onChange={e => setImgLink(e.target.value)} onKeyDown={handleKeyDown} />
         </EditInputGroup>
         <EditButtonGroup>
-          <ModalBtn onClick={onClose}>Cancel</ModalBtn>
-          <ModalBtn $primary onClick={handleSave}>Save</ModalBtn>
+          <ModalBtn onClick={() => { playClick(); onClose(); }}>Cancel</ModalBtn>
+          <ModalBtn $primary onClick={() => { playClick(); handleSave(); }}>Save</ModalBtn>
         </EditButtonGroup>
       </EditModalBox>
     </EditModalOverlay>
@@ -2660,7 +2660,7 @@ function TrophyBronze() {
 // ─── ResultsView Component ────────────────────────────────────────────────────
 
 
-function ResultsView({ teams, tournamentName, format, participants, router }) { 
+function ResultsView({ teams, tournamentName, format, participants, router, playClick = () => {} }) { 
   const matchDocMapRef = useRef({});
   const [matches, setMatches] = useState([]);
   const [standings, setStandings] = useState([]);
@@ -2990,7 +2990,7 @@ await updateDoc(tRef, {
       {/* Finalize */}
       {!alreadyFinished ? (
         <>
-          <FinalizeBtn onClick={handleFinalize} disabled={finalizing}>
+          <FinalizeBtn onClick={() => { playClick(); handleFinalize(); }} disabled={finalizing}>
             {finalizing ? "Finalizing..." : "⚔ Finalize Tournament"}
           </FinalizeBtn>
           {finalizeMsg && <FinalizeStatus>{finalizeMsg}</FinalizeStatus>}
@@ -3005,9 +3005,63 @@ await updateDoc(tRef, {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+let _tourneyBgAudio = null;
+
+function useButtonSound() {
+  const play = () => {
+    const audio = new Audio("/buttonClick.wav");
+    audio.play().catch(() => {});
+  };
+  return play;
+}
+
+function useTourneyBg(phase) {
+  useEffect(() => {
+    const audio = new Audio("/tourneyBg.mp3");
+    audio.loop = true;
+    audio.volume = 0.6;
+    _tourneyBgAudio = audio;
+
+    const tryPlay = () => {
+      if (phase === 1 && _tourneyBgAudio) {
+        _tourneyBgAudio.play().catch(() => {});
+      }
+      window.removeEventListener("pointerdown", tryPlay);
+      window.removeEventListener("keydown", tryPlay);
+    };
+
+    if (phase === 1) {
+      audio.play().catch(() => {
+        window.addEventListener("pointerdown", tryPlay);
+        window.addEventListener("keydown", tryPlay);
+      });
+    }
+
+    return () => {
+      audio.pause();
+      audio.src = "";
+      _tourneyBgAudio = null;
+      window.removeEventListener("pointerdown", tryPlay);
+      window.removeEventListener("keydown", tryPlay);
+    };
+  }, []);
+
+  useEffect(() => {
+    const bg = _tourneyBgAudio;
+    if (!bg) return;
+    if (phase === 1) {
+      bg.play().catch(() => {});
+    } else {
+      bg.pause();
+      bg.currentTime = 0;
+    }
+  }, [phase]);
+}
+
 export default function Hero() {
   const router = useRouter();
   const { tournamentName, admin: isAdmin } = useStateContext();
+  const playClick = useButtonSound();
   const [phase, setPhase] = useState(1);
 
   const [tournament, setTournament]           = useState(null);
@@ -3072,6 +3126,8 @@ export default function Hero() {
     }
     loadPhase();
   }, [tournamentName]);
+
+  useTourneyBg(phase);
 
   
 
@@ -3311,6 +3367,18 @@ const handleConfirmReactivate = async () => {
       const snap = await getDoc(doc(database, "members", randomParticipant));
       if (snap.exists()) { const data = snap.data(); imgSrc = data.imglink || data.imgLink || "/question.jpg"; }
     } catch (e) { console.error("[Random] Failed to fetch member image:", e); }
+
+    // Duck background music and play card reveal sound
+    const bg = _tourneyBgAudio;
+    if (bg) bg.volume = 0.12;
+    const reveal = new Audio("/cardReveal.wav");
+    setTimeout(() => {
+      reveal.play().catch(() => {});
+    }, 2000);
+    reveal.onended = () => {
+      if (bg) bg.volume = 0.6;
+    };
+
     const revealData = { member: randomParticipant, imgSrc, teamId: tid, tournamentName };
     randomRevealRef.current = revealData;
     setRandomReveal(revealData);
@@ -3423,7 +3491,7 @@ const handleConfirmReactivate = async () => {
         }}/>
       </div>
       <BackBar>
-        <BackBtn style={{ opacity: 1 }} onClick={() => router.push("/")}>
+        <BackBtn style={{ opacity: 1 }} onClick={() => { playClick(); router.push("/"); }}>
           <BackLabel>Back</BackLabel>
           <BackUnderline />
         </BackBtn>
@@ -3465,7 +3533,7 @@ const handleConfirmReactivate = async () => {
       ))}
 
       <PhaseContainer ref={phaseContainerRef}>
-        <PhaseNavBtn disabled={phase === 1} onClick={handlePrevPhase}><span>Prev Phase</span></PhaseNavBtn>
+        <PhaseNavBtn disabled={phase === 1} onClick={() => { playClick(); handlePrevPhase(); }}><span>Prev Phase</span></PhaseNavBtn>
         <PhaseTabsContainer>
           {[1, 2, 3].map((p) => (
             <PhaseTab key={p}>
@@ -3474,14 +3542,14 @@ const handleConfirmReactivate = async () => {
             </PhaseTab>
           ))}
         </PhaseTabsContainer>
-        <PhaseNavBtn disabled={phase === 3 || (phase === 2 && !bracketComplete)} onClick={handleNextPhase}><span>Next Phase</span></PhaseNavBtn>
+        <PhaseNavBtn disabled={phase === 3 || (phase === 2 && !bracketComplete)} onClick={() => { playClick(); handleNextPhase(); }}><span>Next Phase</span></PhaseNavBtn>
       </PhaseContainer>
 
       {phase === 1 && (
         <PhaseContentContainer>
           <TopActionRow>
-            <AddTeamsBtn onClick={() => setShowAddTeamsModal(true)}><span>Set Teams</span></AddTeamsBtn>
-            <ParticipantsBtn onClick={() => setShowParticipantsModal(true)}>
+            <AddTeamsBtn onClick={() => { playClick(); setShowAddTeamsModal(true); }}><span>Set Teams</span></AddTeamsBtn>
+            <ParticipantsBtn onClick={() => { playClick(); setShowParticipantsModal(true); }}>
               <span style={{ display: "flex", alignItems: "center", gap: "7px" }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
                   <circle cx="9" cy="7" r="3.5" stroke="rgba(200,170,110,0.9)" strokeWidth="1.4"/>
@@ -3504,10 +3572,10 @@ const handleConfirmReactivate = async () => {
                 <CardCorner style={{ bottom: 0, right: 0, transform: "scale(-1)" }} />
                 <TeamCardImageWrapper>
                   <TeamCardImage src={team.imgLink || "/question.jpg"} alt={team.name} onError={e => { e.target.src = "/question.jpg"; }} style={{ filter: team.imgLink ? "none" : "grayscale(0.3) opacity(0.5)" }} />
-                  <TeamCardEditBtn onClick={() => setEditingTeamId(team.id)}>
+                  <TeamCardEditBtn onClick={() => { playClick(); setEditingTeamId(team.id); }}>
                     <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                   </TeamCardEditBtn>
-                  <TeamCardDeleteBtn onClick={() => setDeletingTeamId(team.id)}>
+                  <TeamCardDeleteBtn onClick={() => { playClick(); setDeletingTeamId(team.id); }}>
                     <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                   </TeamCardDeleteBtn>
                 </TeamCardImageWrapper>
@@ -3519,15 +3587,15 @@ const handleConfirmReactivate = async () => {
                           <MemberItem key={idx}>
                             <MemberAvatar src={memberImages[member] || "/question.jpg"} alt={member} onError={e => { e.target.src = "/question.jpg"; }} />
                             {member}
-                            <RemoveBtn onClick={() => handleRemoveMember(team.id, member)}>-</RemoveBtn>
+                            <RemoveBtn onClick={() => { playClick(); handleRemoveMember(team.id, member); }}>-</RemoveBtn>
                           </MemberItem>
                         ))
                       : <MemberItem style={{ color: "rgba(200,170,110,0.4)" }}>No members yet</MemberItem>
                     }
                   </TeamCardMembers>
                   <TeamCardButtonGroup>
-                    <TeamCardBtn onClick={() => { setSelectedTeamId(team.id); setShowAddMembersModal(true); }}>Add Member</TeamCardBtn>
-                    <TeamCardBtn onClick={() => handleAddRandomMember(team.id)}>Random</TeamCardBtn>
+                    <TeamCardBtn onClick={() => { playClick(); setSelectedTeamId(team.id); setShowAddMembersModal(true); }}>Add Member</TeamCardBtn>
+                    <TeamCardBtn onClick={() => { playClick(); handleAddRandomMember(team.id); }}>Random</TeamCardBtn>
                   </TeamCardButtonGroup>
                 </TeamCardContent>
               </TeamCard>
@@ -3544,7 +3612,7 @@ const handleConfirmReactivate = async () => {
 
       {phase === 3 && (
         <PhaseContentContainer>
-          <ResultsView teams={teams} tournamentName={tournamentName} format={tournamentFormat} participants={participants} router={router} />
+          <ResultsView teams={teams} tournamentName={tournamentName} format={tournamentFormat} participants={participants} router={router} playClick={playClick} />
         </PhaseContentContainer>
       )}
 
@@ -3563,8 +3631,8 @@ const handleConfirmReactivate = async () => {
               <ModalInput type="number" min="1" placeholder="Enter a number..." value={teamCountInput} onChange={e => setTeamCountInput(e.target.value)} />
             </ModalField>
             <ModalFooter>
-              <ModalBtn onClick={() => setShowAddTeamsModal(false)}>Cancel</ModalBtn>
-              <ModalBtn $primary onClick={handleAddTeams}>Create</ModalBtn>
+              <ModalBtn onClick={() => { playClick(); setShowAddTeamsModal(false); }}>Cancel</ModalBtn>
+              <ModalBtn $primary onClick={() => { playClick(); handleAddTeams(); }}>Create</ModalBtn>
             </ModalFooter>
           </ModalBox>
         </ModalBackdrop>
@@ -3583,6 +3651,7 @@ const handleConfirmReactivate = async () => {
             <MemberCheckboxContainer>
               {getAvailableParticipants().map((participant) => (
                 <MemberCheckboxRow key={participant} onClick={() => {
+                  playClick();
                   const newSet = new Set(selectedMembers);
                   if (newSet.has(participant)) newSet.delete(participant); else newSet.add(participant);
                   setSelectedMembers(newSet);
@@ -3600,8 +3669,8 @@ const handleConfirmReactivate = async () => {
             </MemberCheckboxContainer>
             <SelectedCount>{selectedMembers.size} selected</SelectedCount>
             <ModalFooter>
-              <ModalBtn onClick={() => { setShowAddMembersModal(false); setSelectedMembers(new Set()); }}>Cancel</ModalBtn>
-              <ModalBtn $primary onClick={handleAddMembersToTeam}>Add Selected</ModalBtn>
+              <ModalBtn onClick={() => { playClick(); setShowAddMembersModal(false); setSelectedMembers(new Set()); }}>Cancel</ModalBtn>
+              <ModalBtn $primary onClick={() => { playClick(); handleAddMembersToTeam(); }}>Add Selected</ModalBtn>
             </ModalFooter>
           </ModalBox>
         </ModalBackdrop>
@@ -3612,6 +3681,7 @@ const handleConfirmReactivate = async () => {
           team={teams.find(t => t.id === editingTeamId)}
           onClose={() => setEditingTeamId(null)}
           onSave={handleSaveEditTeam}
+          playClick={playClick}
         />
       )}
 
@@ -3631,10 +3701,10 @@ const handleConfirmReactivate = async () => {
               This cannot be undone.
             </DeleteConfirmText>
             <DeleteConfirmButtons>
-              <ModalBtn onClick={() => setDeletingTeamId(null)}>Cancel</ModalBtn>
+              <ModalBtn onClick={() => { playClick(); setDeletingTeamId(null); }}>Cancel</ModalBtn>
               <ModalBtn
                 style={{ borderColor: 'rgba(200,80,80,0.6)', color: '#ff9999', background: 'rgba(200,80,80,0.1)' }}
-                onClick={() => handleDeleteTeam(deletingTeamId)}
+                onClick={() => { playClick(); handleDeleteTeam(deletingTeamId); }}
               >
                 Delete
               </ModalBtn>
@@ -3662,7 +3732,7 @@ const handleConfirmReactivate = async () => {
                     <SplitRow key={p}>
                       <SplitAvatar src={memberImages[p] || "/question.jpg"} alt={p} onError={e => { e.target.src = "/question.jpg"; }} />
                       <SplitName>{p}</SplitName>
-                      <SplitActionBtn $remove onClick={() => handleRemoveParticipant(p)}>−</SplitActionBtn>
+                      <SplitActionBtn $remove onClick={() => { playClick(); handleRemoveParticipant(p); }}>−</SplitActionBtn>
                     </SplitRow>
                   ))}
                   {participants.filter(p => p.toLowerCase().includes(participantSearch.toLowerCase())).length === 0 && (
@@ -3682,7 +3752,7 @@ const handleConfirmReactivate = async () => {
                       <SplitRow key={m.id} style={{ opacity: isParticipant ? 0.4 : 1 }}>
                         <SplitAvatar src={memberImages[m.id] || "/question.jpg"} alt={m.id} onError={e => { e.target.src = "/question.jpg"; }} />
                         <SplitName>{m.id}</SplitName>
-                        {!isParticipant && (<SplitActionBtn onClick={() => handleAddParticipant(m.id)}>+</SplitActionBtn>)}
+                        {!isParticipant && (<SplitActionBtn onClick={() => { playClick(); handleAddParticipant(m.id); }}>+</SplitActionBtn>)}
                       </SplitRow>
                     );
                   })}
@@ -3694,7 +3764,7 @@ const handleConfirmReactivate = async () => {
               </SplitPanel>
             </SplitBody>
             <ModalFooter>
-              <ModalBtn onClick={() => { setShowParticipantsModal(false); setParticipantSearch(""); setMemberSearch(""); }}>Close</ModalBtn>
+              <ModalBtn onClick={() => { playClick(); setShowParticipantsModal(false); setParticipantSearch(""); setMemberSearch(""); }}>Close</ModalBtn>
             </ModalFooter>
           </SplitModalBox>
         </ModalBackdrop>
@@ -3714,10 +3784,10 @@ const handleConfirmReactivate = async () => {
               <span style={{ color: 'rgba(100,200,140,0.9)', letterSpacing: '0.1em' }}>ongoing</span> again.
             </DeleteConfirmText>
             <DeleteConfirmButtons>
-              <ModalBtn onClick={() => setShowReactivateConfirm(false)}>Cancel</ModalBtn>
+              <ModalBtn onClick={() => { playClick(); setShowReactivateConfirm(false); }}>Cancel</ModalBtn>
               <ModalBtn
                 $primary
-                onClick={handleConfirmReactivate}
+                onClick={() => { playClick(); handleConfirmReactivate(); }}
               >
                 Confirm
               </ModalBtn>
@@ -3730,13 +3800,17 @@ const handleConfirmReactivate = async () => {
         <RandomRevealOverlay
           member={randomReveal.member}
           imgSrc={randomReveal.imgSrc}
-          onDismiss={() => setRandomReveal(null)}
+          onDismiss={() => {
+            if (_tourneyBgAudio) _tourneyBgAudio.volume = 0.6;
+            setRandomReveal(null);
+          }}
           onConfirm={handleConfirmRandomMember}
+          playClick={playClick}
         />
       )}
 
       <BackBar>
-        <BackBtn ref={backBtnRef} onClick={handleBack}>
+        <BackBtn ref={backBtnRef} onClick={() => { playClick(); handleBack(); }}>
           <BackLabel>Back</BackLabel>
           <BackUnderline />
         </BackBtn>
