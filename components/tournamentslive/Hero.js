@@ -3006,6 +3006,7 @@ await updateDoc(tRef, {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 let _tourneyBgAudio = null;
+let _defaultBgAudio = null;
 
 function useButtonSound() {
   const play = () => {
@@ -3017,6 +3018,22 @@ function useButtonSound() {
 
 function useTourneyBg(phase) {
   useEffect(() => {
+    const defaultAudio = new Audio("/defaultBg.mp3");
+    defaultAudio.loop = true;
+    defaultAudio.volume = 0.6;
+    _defaultBgAudio = defaultAudio;
+    if (phase !== 1) {
+      defaultAudio.play().catch(() => {
+        const tryPlayDefault = () => {
+          if (_defaultBgAudio) _defaultBgAudio.play().catch(() => {});
+          window.removeEventListener("pointerdown", tryPlayDefault);
+          window.removeEventListener("keydown", tryPlayDefault);
+        };
+        window.addEventListener("pointerdown", tryPlayDefault);
+        window.addEventListener("keydown", tryPlayDefault);
+      });
+    }
+
     const audio = new Audio("/tourneyBg.mp3");
     audio.loop = true;
     audio.volume = 0.6;
@@ -3041,6 +3058,9 @@ function useTourneyBg(phase) {
       audio.pause();
       audio.src = "";
       _tourneyBgAudio = null;
+      defaultAudio.pause();
+      defaultAudio.src = "";
+      _defaultBgAudio = null;
       window.removeEventListener("pointerdown", tryPlay);
       window.removeEventListener("keydown", tryPlay);
     };
@@ -3050,10 +3070,14 @@ function useTourneyBg(phase) {
     const bg = _tourneyBgAudio;
     if (!bg) return;
     if (phase === 1) {
+      if (_defaultBgAudio) { _defaultBgAudio.pause(); _defaultBgAudio.currentTime = 0; }
       bg.play().catch(() => {});
     } else {
       bg.pause();
       bg.currentTime = 0;
+      if (_defaultBgAudio) {
+        _defaultBgAudio.play().catch(() => {});
+      }
     }
   }, [phase]);
 }

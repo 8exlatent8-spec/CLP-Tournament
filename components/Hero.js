@@ -3130,6 +3130,36 @@ function useTabFlash(btnRefs) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+let _homeBgAudio = null;
+
+function useHomeBg() {
+  useEffect(() => {
+    const audio = new Audio("/defaultBg.mp3");
+    audio.loop = true;
+    audio.volume = 0.6;
+    _homeBgAudio = audio;
+
+    const tryPlay = () => {
+      if (_homeBgAudio) _homeBgAudio.play().catch(() => {});
+      window.removeEventListener("pointerdown", tryPlay);
+      window.removeEventListener("keydown", tryPlay);
+    };
+
+    audio.play().catch(() => {
+      window.addEventListener("pointerdown", tryPlay);
+      window.addEventListener("keydown", tryPlay);
+    });
+
+    return () => {
+      audio.pause();
+      audio.src = "";
+      _homeBgAudio = null;
+      window.removeEventListener("pointerdown", tryPlay);
+      window.removeEventListener("keydown", tryPlay);
+    };
+  }, []);
+}
+
 function useButtonSound() {
   const play = () => {
     const audio = new Audio("/buttonClick.wav");
@@ -3140,6 +3170,7 @@ function useButtonSound() {
 
 export default function Hero() {
   const playClick = useButtonSound();
+  useHomeBg();
   const [activeTab, setActiveTab] = useState("tournaments");
   const [showTournamentModal, setShowTournamentModal] = useState(false);
   const [showMemberModal, setShowMemberModal]         = useState(false);

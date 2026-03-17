@@ -799,6 +799,36 @@ function BgDecoSVG({ ringRefs }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+let _viewerBgAudio = null;
+
+function useViewerBg() {
+  useEffect(() => {
+    const audio = new Audio("/defaultBg.mp3");
+    audio.loop = true;
+    audio.volume = 0.6;
+    _viewerBgAudio = audio;
+
+    const tryPlay = () => {
+      if (_viewerBgAudio) _viewerBgAudio.play().catch(() => {});
+      window.removeEventListener("pointerdown", tryPlay);
+      window.removeEventListener("keydown", tryPlay);
+    };
+
+    audio.play().catch(() => {
+      window.addEventListener("pointerdown", tryPlay);
+      window.addEventListener("keydown", tryPlay);
+    });
+
+    return () => {
+      audio.pause();
+      audio.src = "";
+      _viewerBgAudio = null;
+      window.removeEventListener("pointerdown", tryPlay);
+      window.removeEventListener("keydown", tryPlay);
+    };
+  }, []);
+}
+
 function useButtonSound() {
   const play = () => {
     const audio = new Audio("/buttonClick.wav");
@@ -811,6 +841,7 @@ export default function Hero() {
   const router = useRouter();
   const { tournamentName, isLoading } = useStateContext();
   const playClick = useButtonSound();
+  useViewerBg();
   const [teams, setTeams] = useState([]);
   const [standings, setStandings] = useState([]);
   const [format, setFormat] = useState("Double-Elimination");
