@@ -2783,7 +2783,7 @@ function ResultsView({ teams, tournamentName, format, participants, router, play
         }
 
         // Fallback for anyone still unranked
-        let fallbackRank = Object.values(rankMap).length > 0 ? Math.max(...Object.values(rankMap)) + 1 : 1;
+        let fallbackRank = Object.values(rankMap).length > 0 ? Math.max(...Object.values(rankMap)) + 1 : 999;
         teams.filter(t => !rankMap[t.id]).forEach(t => {
           rankMap[t.id] = fallbackRank++;
         });
@@ -2930,6 +2930,7 @@ await updateDoc(tRef, {
     if (rank === 1) return <TrophyGold />;
     if (rank === 2) return <TrophySilver />;
     if (rank === 3) return <TrophyBronze />;
+    if (rank >= 999) return <span style={{ fontFamily: "Cinzel,serif", fontSize: "0.65rem", color: "rgba(200,170,110,0.2)" }}>—</span>;
     return <span style={{ fontFamily: "Cinzel,serif", fontSize: "0.65rem", color: "rgba(200,170,110,0.35)" }}>#{rank}</span>;
   };
 

@@ -2302,7 +2302,25 @@ function MemberHistoryModal({ member, onClose, playClick = () => {} }) {
         const participated = all.filter(t =>
           Array.isArray(t.participants) && t.participants.includes(member.name)
         );
-        setTournaments(participated);
+
+        // For each tournament with a firstTeam set, load teams to find which team this member was on
+        const withRanks = await Promise.all(participated.map(async (t) => {
+          if (!t.firstTeam) return t;
+          try {
+            console.log(`📖 READ: fetching teams for tournament "${t.name}" (status: ${t.status})`);
+            const teamsSnap = await getDocs(collection(database, "tournaments", t.id, "teams"));
+            const memberTeam = teamsSnap.docs
+              .map(d => d.data())
+              .find(team => Array.isArray(team.members) && team.members.includes(member.name));
+            console.log(`   member team found:`, memberTeam?.name ?? "none", "| firstTeam:", t.firstTeam);
+            return { ...t, _memberTeamName: memberTeam?.name ?? null };
+          } catch (e) {
+            console.error(`Failed to load teams for tournament ${t.id}:`, e);
+            return t;
+          }
+        }));
+
+        setTournaments(withRanks);
       } catch (e) {
         console.error("Failed to load tournament history:", e);
       } finally {
@@ -2315,12 +2333,10 @@ function MemberHistoryModal({ member, onClose, playClick = () => {} }) {
   if (!mounted) return null;
 
   const getRank = (t) => {
-const inFirst  = t.firstTeam  === member.name;
-const inSecond = t.secondTeam === member.name;
-const inThird  = t.thirdTeam  === member.name;
-    if (inFirst)  return 1;
-    if (inSecond) return 2;
-    if (inThird)  return 3;
+    if (!t._memberTeamName) return null;
+    if (t.firstTeam  && t._memberTeamName === t.firstTeam)  return 1;
+    if (t.secondTeam && t._memberTeamName === t.secondTeam) return 2;
+    if (t.thirdTeam  && t._memberTeamName === t.thirdTeam)  return 3;
     return null;
   };
 
@@ -2376,16 +2392,7 @@ const inThird  = t.thirdTeam  === member.name;
                 alignItems: "center",
                 gap: "16px",
               }}>
-                {/* Number badge */}
-                <div style={{
-                  fontFamily: "'Cinzel', serif",
-                  fontSize: "0.5rem",
-                  letterSpacing: "0.15em",
-                  color: "rgba(200,170,110,0.4)",
-                  flexShrink: 0,
-                  width: 28,
-                  textAlign: "center",
-                }}>#{t.number}</div>
+                
 
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
