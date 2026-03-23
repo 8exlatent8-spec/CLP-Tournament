@@ -3394,15 +3394,35 @@ const handleConfirmReactivate = async () => {
     } catch (e) { console.error("[Random] Failed to fetch member image:", e); }
 
     // Duck background music and play card reveal sound
-    const bg = _tourneyBgAudio;
-    if (bg) bg.volume = 0.12;
-    const reveal = new Audio("/cardReveal.wav");
-    setTimeout(() => {
-      reveal.play().catch(() => {});
-    }, 2000);
-    reveal.onended = () => {
-      if (bg) bg.volume = 0.6;
+    const duckBg = () => {
+      if (_tourneyBgAudio) _tourneyBgAudio.volume = 0.12;
+      if (_defaultBgAudio) _defaultBgAudio.volume = 0.12;
     };
+    const restoreBg = () => {
+      if (_tourneyBgAudio) _tourneyBgAudio.volume = 0.6;
+      if (_defaultBgAudio) _defaultBgAudio.volume = 0.6;
+    };
+
+    duckBg();
+
+    const revealSounds = [
+      { src: "/cardReveal.wav",  delay: 2000 },
+      { src: "/cardReveal1.mp3", delay: 300  },
+      { src: "/cardReveal2.mp3", delay: 1300 },
+      { src: "/cardReveal3.mp3", delay: 900  },
+      { src: "/cardReveal4.mp3", delay: 0    },
+    ];
+    const chosen = revealSounds[Math.floor(Math.random() * revealSounds.length)];
+    const reveal = new Audio(chosen.src);
+
+    // Restore on end, error, or after a safe timeout fallback
+    const safeRestoreTimeout = setTimeout(restoreBg, chosen.delay + 10000);
+    reveal.onended = () => { clearTimeout(safeRestoreTimeout); restoreBg(); };
+    reveal.onerror = () => { clearTimeout(safeRestoreTimeout); restoreBg(); };
+
+    setTimeout(() => {
+      reveal.play().catch(() => { clearTimeout(safeRestoreTimeout); restoreBg(); });
+    }, chosen.delay);
 
     const revealData = { member: randomParticipant, imgSrc, teamId: tid, tournamentName };
     randomRevealRef.current = revealData;
