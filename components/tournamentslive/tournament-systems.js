@@ -426,7 +426,19 @@ export function PickWinnerModal({ match, teamMap, onClose, onPickWinner, onUndec
         <PickWinnerDivider />
 
         {options.map(team => (
-          <PickWinnerOption key={team.id} onClick={() => { playClick(); onPickWinner(match, team.id); }}>
+          <PickWinnerOption key={team.id} onClick={(e) => {
+            const btn = e.currentTarget;
+            if (btn.disabled) return;
+            btn.disabled = true;
+            btn.style.opacity = '0.45';
+            btn.style.cursor = 'not-allowed';
+            playClick();
+            Promise.resolve(onPickWinner(match, team.id)).catch(() => {
+              btn.disabled = false;
+              btn.style.opacity = '';
+              btn.style.cursor = '';
+            });
+          }}>
             <PickWinnerOptionImg
               src={team.img || '/question.jpg'}
               alt={team.name}
@@ -439,7 +451,19 @@ export function PickWinnerModal({ match, teamMap, onClose, onPickWinner, onUndec
 
         {match.status === 'complete' && (
           <PickWinnerOption
-            onClick={() => { playClick(); onUndecided(match); }}
+            onClick={(e) => {
+              const btn = e.currentTarget;
+              if (btn.disabled) return;
+              btn.disabled = true;
+              btn.style.opacity = '0.45';
+              btn.style.cursor = 'not-allowed';
+              playClick();
+              Promise.resolve(onUndecided(match)).catch(() => {
+                btn.disabled = false;
+                btn.style.opacity = '';
+                btn.style.cursor = '';
+              });
+            }}
             style={{ borderColor: 'rgba(200,80,80,0.3)', marginTop: 10 }}
           >
             <span style={{ fontSize: '1.1rem', marginRight: 2, color: 'rgba(220,100,100,0.85)' }}>↩</span>

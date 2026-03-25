@@ -2991,7 +2991,19 @@ await updateDoc(tRef, {
       {/* Finalize */}
       {!alreadyFinished ? (
         <>
-          <FinalizeBtn onClick={() => { playClick(); handleFinalize(); }} disabled={finalizing}>
+          <FinalizeBtn
+            onClick={(e) => {
+              if (finalizing) return;
+              playClick();
+              handleFinalize();
+            }}
+            disabled={finalizing}
+            style={{
+              opacity: finalizing ? 0.5 : 1,
+              cursor: finalizing ? 'not-allowed' : 'pointer',
+              pointerEvents: finalizing ? 'none' : 'auto',
+            }}
+          >
             {finalizing ? "Finalizing..." : "⚔ Finalize Tournament"}
           </FinalizeBtn>
           {finalizeMsg && <FinalizeStatus>{finalizeMsg}</FinalizeStatus>}
@@ -3289,7 +3301,10 @@ const handleConfirmReactivate = async () => {
         secondTeam: [],
         thirdTeam: [],
       });
-    } catch (e) { console.error("Failed to reactivate tournament:", e); }
+    } catch (e) {
+      console.error("Failed to reactivate tournament:", e);
+      throw e;
+    }
     await doPrevPhase();
   };
 
@@ -3482,14 +3497,12 @@ const handleConfirmReactivate = async () => {
   };
 
   const handleDeleteTeam = async (teamId) => {
-    try {
-      const { deleteDoc, doc } = await import("firebase/firestore");
-      const { database } = await import("@/backend/Firebase");
-      console.log(`✏️ WRITE: deleting team doc "${teamId}"`);
-      await deleteDoc(doc(database, "tournaments", tournamentName, "teams", teamId));
-      setTeams(prev => prev.filter(t => t.id !== teamId));
-      setDeletingTeamId(null);
-    } catch (e) { console.error("Failed to delete team:", e); }
+    const { deleteDoc, doc } = await import("firebase/firestore");
+    const { database } = await import("@/backend/Firebase");
+    console.log(`✏️ WRITE: deleting team doc "${teamId}"`);
+    await deleteDoc(doc(database, "tournaments", tournamentName, "teams", teamId));
+    setTeams(prev => prev.filter(t => t.id !== teamId));
+    setDeletingTeamId(null);
   };
 
   const handleBack = () => {
@@ -3749,7 +3762,21 @@ const handleConfirmReactivate = async () => {
               <ModalBtn onClick={() => { playClick(); setDeletingTeamId(null); }}>Cancel</ModalBtn>
               <ModalBtn
                 style={{ borderColor: 'rgba(200,80,80,0.6)', color: '#ff9999', background: 'rgba(200,80,80,0.1)' }}
-                onClick={() => { playClick(); handleDeleteTeam(deletingTeamId); }}
+                onClick={(e) => {
+                  const btn = e.currentTarget;
+                  if (btn.disabled) return;
+                  btn.disabled = true;
+                  btn.textContent = 'Deleting...';
+                  btn.style.opacity = '0.5';
+                  btn.style.cursor = 'not-allowed';
+                  playClick();
+                  handleDeleteTeam(deletingTeamId).catch(() => {
+                    btn.disabled = false;
+                    btn.textContent = 'Delete';
+                    btn.style.opacity = '';
+                    btn.style.cursor = '';
+                  });
+                }}
               >
                 Delete
               </ModalBtn>
@@ -3832,7 +3859,21 @@ const handleConfirmReactivate = async () => {
               <ModalBtn onClick={() => { playClick(); setShowReactivateConfirm(false); }}>Cancel</ModalBtn>
               <ModalBtn
                 $primary
-                onClick={() => { playClick(); handleConfirmReactivate(); }}
+                onClick={(e) => {
+                  const btn = e.currentTarget;
+                  if (btn.disabled) return;
+                  btn.disabled = true;
+                  btn.textContent = 'Working...';
+                  btn.style.opacity = '0.5';
+                  btn.style.cursor = 'not-allowed';
+                  playClick();
+                  handleConfirmReactivate().catch(() => {
+                    btn.disabled = false;
+                    btn.textContent = 'Confirm';
+                    btn.style.opacity = '';
+                    btn.style.cursor = '';
+                  });
+                }}
               >
                 Confirm
               </ModalBtn>

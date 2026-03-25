@@ -1511,7 +1511,7 @@ function AddTournamentModal({ onClose, onAdded, playClick = () => {} }) {
     if (!form.name.trim()) { setNameError("Tournament name is required."); return; }
     setLoading(true); setError(""); setNameError("");
     try {
-      const { getDocs, collection, query, orderBy, setDoc, doc } = await import("firebase/firestore");
+      const { getDocs, collection, query, orderBy } = await import("firebase/firestore");
       const { database } = await import("../backend/Firebase");
       console.log("📖 READ: fetching tournaments to determine next number");
       const snap = await getDocs(query(collection(database, "tournaments"), orderBy("number", "asc")));
@@ -1523,23 +1523,24 @@ function AddTournamentModal({ onClose, onAdded, playClick = () => {} }) {
       const tournamentName = form.name.trim();
       const { addDoc } = await import("firebase/firestore");
       console.log("✏️ WRITE: creating new tournament document");
-const newRef = await addDoc(collection(database, "tournaments"), {
-  name:              tournamentName,
-  prizes:            form.prizes.trim(),
-  format:            form.format,
-  participants:      participantNames,
-  totalParticipants: participantNames.length,
-  number:            nextNumber,
-  status:            "ongoing",
-  totalTeams:        0,
-  phase:             1,
-});
-setSuccess(true);
-setTimeout(() => { onAdded(); onClose(); setTournamentName(newRef.id); router.push("/tournamentslive"); }, 800);    } catch (e) {
+      const newRef = await addDoc(collection(database, "tournaments"), {
+        name:              tournamentName,
+        prizes:            form.prizes.trim(),
+        format:            form.format,
+        participants:      participantNames,
+        totalParticipants: participantNames.length,
+        number:            nextNumber,
+        status:            "ongoing",
+        totalTeams:        0,
+        phase:             1,
+      });
+      setSuccess(true);
+      // Never call setLoading(false) on success — button stays locked until modal closes
+      setTimeout(() => { onAdded(); onClose(); setTournamentName(newRef.id); router.push("/tournamentslive"); }, 800);
+    } catch (e) {
       setError("Failed to create tournament.");
       console.error(e);
-    } finally {
-      setLoading(false);
+      setLoading(false); // only re-enable on actual error so user can retry
     }
   };
 
@@ -2538,11 +2539,32 @@ function CardCorner({ style }) {
 
 function ConfirmModal({ message, onConfirm, onCancel, playClick = () => {} }) {
   const [mounted, setMounted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
 
+  const handleConfirm = () => {
+    if (busy) return;
+    playClick();
+    setBusy(true);
+    setTimedOut(false);
+    const timer = setTimeout(() => {
+      setTimedOut(true);
+      setBusy(false);
+    }, 5000);
+    Promise.resolve(onConfirm()).then(() => {
+      clearTimeout(timer);
+      // stay busy=true forever — modal will unmount shortly
+    }).catch(() => {
+      clearTimeout(timer);
+      setBusy(false);
+      setTimedOut(true);
+    });
+  };
+
   return createPortal(
-    <ModalBackdrop onClick={e => { if (e.target === e.currentTarget) onCancel(); }}>
+    <ModalBackdrop onClick={e => { if (e.target === e.currentTarget && !busy) onCancel(); }}>
       <ModalBox style={{ maxWidth: 360 }}>
         <ModalScanLine />
         <CardCorner style={{ top: 0, left: 0 }} />
@@ -2567,13 +2589,22 @@ function ConfirmModal({ message, onConfirm, onCancel, playClick = () => {} }) {
           {message}
         </p>
 
+        {timedOut && (
+          <ModalError style={{ marginBottom: 12 }}>Request timed out. Please try again.</ModalError>
+        )}
+
         <ModalFooter style={{ justifyContent: "center", gap: 14 }}>
-          <ModalBtn onClick={() => { playClick(); onCancel(); }}>Cancel</ModalBtn>
-          <ModalBtn $primary onClick={() => { playClick(); onConfirm(); }} style={{
+          <ModalBtn onClick={() => { playClick(); onCancel(); }} disabled={busy}>Cancel</ModalBtn>
+          <ModalBtn $primary onClick={handleConfirm} disabled={busy} style={{
             borderColor: "rgba(220,80,60,0.6)",
-            color: "#ffaaaa",
+            color: busy ? "rgba(255,150,150,0.4)" : "#ffaaaa",
             background: "rgba(200,60,40,0.1)",
-          }}>Delete</ModalBtn>
+            opacity: busy ? 0.5 : 1,
+            cursor: busy ? "not-allowed" : "pointer",
+            transition: "opacity 0.2s ease, color 0.2s ease",
+          }}>
+            {busy ? "Deleting..." : "Delete"}
+          </ModalBtn>
         </ModalFooter>
       </ModalBox>
     </ModalBackdrop>,
@@ -2624,17 +2655,39 @@ function TournamentGrid({ tournamentsRef, searchQuery = "", playClick = () => {}
 const handleDeleteTournament = async (t) => {
     try {
       const {
-        doc, deleteDoc, getDoc, updateDoc, increment
+        doc, deleteDoc, getDoc, updateDoc, increment, getDocs, collection
       } = await import("firebase/firestore");
       const { database } = await import("../backend/Firebase");
 
       const isFinished = t.status !== "ongoing";
 
-      // Delete the tournament FIRST — if this fails, no stats are touched
+      // Load teams BEFORE deleting subcollections so we can resolve podium members
+      let firstMembers = [], secondMembers = [], thirdMembers = [];
+      if (isFinished && (t.firstTeam || t.secondTeam || t.thirdTeam)) {
+        console.log(`📖 READ: fetching teams to resolve podium members for "${t.id}"`);
+        const teamsSnap = await getDocs(collection(database, "tournaments", t.id, "teams"));
+        const teamsData = teamsSnap.docs.map(d => d.data());
+        firstMembers  = teamsData.find(tm => tm.name === t.firstTeam)?.members  ?? [];
+        secondMembers = teamsData.find(tm => tm.name === t.secondTeam)?.members ?? [];
+        thirdMembers  = teamsData.find(tm => tm.name === t.thirdTeam)?.members  ?? [];
+        console.log("🏆 Podium members resolved:", { firstMembers, secondMembers, thirdMembers });
+      }
+
+      // Delete subcollections (teams, matches)
+      for (const sub of ["teams", "matches"]) {
+        console.log(`📖 READ: fetching subcollection "${sub}" for tournament "${t.id}"`);
+        const subSnap = await getDocs(collection(database, "tournaments", t.id, sub));
+        for (const subDoc of subSnap.docs) {
+          console.log(`✏️ WRITE: deleting ${sub} doc "${subDoc.id}"`);
+          await deleteDoc(subDoc.ref);
+        }
+      }
+
+      // Delete the parent tournament doc
       console.log(`✏️ WRITE: deleting tournament doc "${t.id}"`);
       await deleteDoc(doc(database, "tournaments", t.id));
 
-      // Only update stats after confirmed deletion
+      // Decrement participations for all participants
       if (isFinished && t.participants?.length) {
         for (const name of t.participants) {
           if (!name || typeof name !== "string") continue;
@@ -2648,20 +2701,23 @@ const handleDeleteTournament = async (t) => {
         }
       }
 
+      // Decrement trophy counts for podium team members
       if (isFinished) {
-        const podium = [
-          { field: "first",  name: t.firstTeam  ?? "" },
-          { field: "second", name: t.secondTeam ?? "" },
-          { field: "third",  name: t.thirdTeam  ?? "" },
+        const podiumUpdates = [
+          { members: firstMembers,  field: "first"  },
+          { members: secondMembers, field: "second" },
+          { members: thirdMembers,  field: "third"  },
         ];
-        for (const { field, name } of podium) {
-          if (!name || typeof name !== "string") continue;
-          const memberRef = doc(database, "members", name);
-          console.log(`📖 READ: fetching member "${name}" for ${field} decrement`);
-          const memberSnap = await getDoc(memberRef);
-          if (memberSnap.exists()) {
-            console.log(`✏️ WRITE: decrementing ${field} for "${name}"`);
-            await updateDoc(memberRef, { [field]: increment(-1) });
+        for (const { members, field } of podiumUpdates) {
+          for (const name of members) {
+            if (!name || typeof name !== "string") continue;
+            const memberRef = doc(database, "members", name);
+            console.log(`📖 READ: fetching member "${name}" for ${field} decrement`);
+            const memberSnap = await getDoc(memberRef);
+            if (memberSnap.exists()) {
+              console.log(`✏️ WRITE: decrementing ${field} for "${name}"`);
+              await updateDoc(memberRef, { [field]: increment(-1) });
+            }
           }
         }
       }
