@@ -58,7 +58,7 @@ const medallionGlow = keyframes`
 const HeroRoot = styled.section`
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
   overflow: hidden;
   background: #04050a;
   display: flex;
@@ -67,7 +67,7 @@ const HeroRoot = styled.section`
   justify-content: flex-start;
 
   @media (max-width: 480px) {
-    min-height: 100dvh;
+    height: 100dvh;
   }
 `;
 
@@ -306,6 +306,7 @@ const ContentArea = styled.div`
   flex: 1;
   overflow: hidden;
   margin-top: 62px;
+  height: calc(100vh - 62px);
 `;
 
 const SlideTrack = styled.div`
@@ -313,23 +314,25 @@ const SlideTrack = styled.div`
   width: 200%;
   height: 100%;
   will-change: transform;
+  pointer-events: all;
 `;
 
 const TabPanel = styled.div`
   width: 50%;
-  min-height: calc(100vh - 72px - 62px);
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 48px 10%;
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  transform: translateZ(0);
+  will-change: scroll-position;
 
-  @media (max-height: 600px) {
-    min-height: auto;
-    padding: 32px 10%;
-    justify-content: flex-start;
-    padding-top: 40px;
-  }
+  &::-webkit-scrollbar { display: none; }
+  scrollbar-width: none;
 `;
 
 // ─── Search bar ───────────────────────────────────────────────────────────────
@@ -341,8 +344,8 @@ const SearchWrap = styled.div`
   transform: translateX(-50%);
   width: clamp(280px, 44%, 520px);
   z-index: 15;
-  opacity: 0;
-  pointer-events: none;
+  opacity: 1;
+  pointer-events: all;
 `;
 
 const SearchOuter = styled.div`
@@ -525,6 +528,7 @@ const TournamentGridWrap = styled.div`
   gap: 20px;
   width: 100%;
   max-width: 1100px;
+  contain: layout style;
 
   @media (max-width: 1000px) {
     grid-template-columns: repeat(2, 1fr);
@@ -841,6 +845,7 @@ const MemberGridWrap = styled.div`
   gap: 16px;
   width: 100%;
   max-width: 770px;
+  contain: layout style;
 
   @media (max-width: 1000px) { grid-template-columns: repeat(3, 1fr); }
   @media (max-width: 680px)  { grid-template-columns: repeat(2, 1fr); }
@@ -2126,21 +2131,11 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "", playClick = (
 
   useEffect(() => {
     if (!members.length) return;
-    const listeners = [];
     cardRefs.current.filter(Boolean).forEach((card, i) => {
       gsap.fromTo(card,
-        { opacity: 0, y: 36, rotateX: 10, scale: 0.94 },
-        { opacity: 1, y: 0, rotateX: 0, scale: 1, duration: 0.75, ease: "power3.out", delay: 0.08 * i }
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.55, ease: "power3.out", delay: 0.06 * i }
       );
-      const onEnter = () => gsap.to(card, { rotateY: 3, rotateX: -2, scale: 1.02, duration: 0.35, ease: "power2.out" });
-      const onLeave = () => gsap.to(card, { rotateY: 0, rotateX: 0, scale: 1, duration: 0.45, ease: "power2.inOut" });
-      card.addEventListener("mouseenter", onEnter);
-      card.addEventListener("mouseleave", onLeave);
-      listeners.push({ card, onEnter, onLeave });
-    });
-    return () => listeners.forEach(({ card, onEnter, onLeave }) => {
-      card.removeEventListener("mouseenter", onEnter);
-      card.removeEventListener("mouseleave", onLeave);
     });
   }, [members]);
 
@@ -2998,6 +2993,8 @@ function useEntranceAnims(refs) {
         .to({}, { duration: 0.8 });
     }
 
+    
+
     // search bar entrance — only animate in the first one (tournaments)
     if (refs.searchBars?.current) {
       const first = refs.searchBars.current[0];
@@ -3009,7 +3006,6 @@ function useEntranceAnims(refs) {
           }
         );
       }
-      // keep members bar hidden and non-interactive on mount
       const second = refs.searchBars.current[1];
       if (second) {
         gsap.set(second, { opacity: 0, y: 12 });
@@ -3347,13 +3343,13 @@ export default function Hero() {
       <ContentArea>
         <SlideTrack ref={trackRef}>
           {/* Tournaments panel */}
-          <TabPanel style={{ justifyContent: "flex-start", paddingTop: "90px", gap: "0", alignItems: "center", padding: "90px 5% 48px" }}>
+          <TabPanel style={{ justifyContent: "flex-start", gap: "0", alignItems: "center", padding: "90px 5% 48px", overflowY: "auto", height: "100%" }}>
             <SectionTitle>Active Tournaments</SectionTitle>
             <TournamentGrid tournamentsRef={tournamentsGridRef} searchQuery={tournamentSearch} playClick={playClick} />
           </TabPanel>
 
 {/* Members panel */}
-<TabPanel style={{ justifyContent: "flex-start", paddingTop: "90px", alignItems: "center", padding: "90px 5% 48px" }}>
+<TabPanel style={{ justifyContent: "flex-start", alignItems: "center", padding: "90px 5% 48px", overflowY: "auto", height: "100%" }}>
   <SectionTitle>Guild Members</SectionTitle>
   <MemberGrid refreshKey={memberRefreshKey} onRefresh={() => setMemberRefreshKey(k => k + 1)} searchQuery={memberSearch} playClick={playClick} />
 </TabPanel>
@@ -3376,7 +3372,7 @@ export default function Hero() {
       )}
 
     {/* ── floating search bars ── */}
-      <SearchWrap ref={el => { searchRefs.current[0] = el; }}>
+      <SearchWrap ref={el => { searchRefs.current[0] = el; }} style={{ opacity: 1 }}>
         <SearchOuter>
           <SearchIcon>
             <svg viewBox="0 0 16 16" width="15" height="15" fill="none">
@@ -3396,7 +3392,7 @@ export default function Hero() {
         )}
       </SearchWrap>
 
-      <SearchWrap ref={el => { searchRefs.current[1] = el; }} style={{ top: "78px" }}>
+      <SearchWrap ref={el => { searchRefs.current[1] = el; }} style={{ top: "78px", opacity: 0, pointerEvents: "none" }}>
         <SearchOuter>
           <SearchIcon>
             <svg viewBox="0 0 16 16" width="15" height="15" fill="none">
