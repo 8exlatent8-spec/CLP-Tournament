@@ -883,6 +883,7 @@ const [pan, setPan] = useState({ x: 40, y: 80 });
 
   const containerRef = useRef(null);
   const wheelListenerRef = useRef(null);
+  const shuffleBracket = useRef(null);
   const isPanning = useRef(false);
   const panStart = useRef({ x: 0, y: 0, px: 0, py: 0 });
   const didPan = useRef(false);
@@ -1162,6 +1163,27 @@ console.log(`📖 [Firestore READ] tournaments/${tournamentName}/matches — ${s
       el.removeEventListener('touchend', onTouchEnd);
     };
   }, []);
+
+  const handleShuffle = async () => {
+    if (!tournamentName || teams.length < 2) return;
+    playClick();
+    try {
+      const { getDocs, collection, writeBatch, doc } = await import("firebase/firestore");
+      const { database } = await import("@/backend/Firebase");
+      const snap = await getDocs(collection(database, "tournaments", tournamentName, "matches"));
+      const deleteBatch = writeBatch(database);
+      snap.docs.forEach(d => deleteBatch.delete(d.ref));
+      await deleteBatch.commit();
+      const generated =
+        format === "Single-Elimination" ? generateSingleElimBracket(teams) : generateDoubleElimBracket(teams);
+      const createBatch = writeBatch(database);
+      generated.forEach(m => {
+        const ref = doc(collection(database, "tournaments", tournamentName, "matches"));
+        createBatch.set(ref, m);
+      });
+      await createBatch.commit();
+    } catch (e) { console.error("Shuffle failed:", e); }
+  };
 
   const handleMouseDown = e => { isPanning.current = true; didPan.current = false; panStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }; };
   const handleMouseMove = e => {
@@ -1499,6 +1521,34 @@ console.log(`📖 [Firestore READ] tournaments/${tournamentName}/matches — ${s
         </button>
       </div>
       </BracketContainer>
+
+      {!readOnly && (
+        <div style={{
+          display: 'flex', justifyContent: 'center',
+          marginTop: 18,
+        }}>
+          <button
+            onClick={handleShuffle}
+            style={{
+              fontFamily: 'Cinzel, serif',
+              fontSize: '0.5rem',
+              letterSpacing: '0.4em',
+              textTransform: 'uppercase',
+              color: 'rgba(200,170,110,0.7)',
+              background: 'rgba(10,11,18,0.95)',
+              border: '1px solid rgba(200,170,110,0.3)',
+              padding: '10px 28px',
+              cursor: 'pointer',
+              clipPath: 'polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0% calc(100% - 8px), 0% 8px)',
+              transition: 'background 0.2s, border-color 0.2s, color 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(200,170,110,0.12)'; e.currentTarget.style.borderColor = 'rgba(200,170,110,0.65)'; e.currentTarget.style.color = 'rgba(200,170,110,1)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(10,11,18,0.95)'; e.currentTarget.style.borderColor = 'rgba(200,170,110,0.3)'; e.currentTarget.style.color = 'rgba(200,170,110,0.7)'; }}
+          >
+            ⇄ Reshuffle Bracket
+          </button>
+        </div>
+      )}
 
       {!readOnly && pickingMatch && (
         <PickWinnerModal

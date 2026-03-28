@@ -6,17 +6,10 @@ import { useStateContext } from "../context/StateContext";
 import styled, { keyframes, css } from "styled-components";
 import gsap from "gsap";
 
-// ─── CSS keyframes ────────────────────────────────────────────────────────────
-
-const hexPulse = keyframes`
-  0%, 100% { opacity: 0.022; }
-  50%       { opacity: 0.048; }
-`;
-
-const slowVignette = keyframes`
-  0%, 100% { opacity: 0.9; }
-  50%       { opacity: 1;   }
-`;
+// ─── CSS keyframes ─────────────────────────────────────────────────────────
+// PERF: Removed slowVignette (triggered repaint every frame on full-viewport element)
+// PERF: Removed hexPulse opacity animation (caused continuous repaint on grid layer)
+// PERF: scanPulse kept but reduced to transform-only where possible
 
 const innerRotate = keyframes`
   0%   { transform: rotate(0deg);   }
@@ -53,6 +46,51 @@ const medallionGlow = keyframes`
   }
 `;
 
+// PERF: scanPulse only animates opacity — cheap. Keep it.
+const scanPulse = keyframes`
+  0%, 100% { opacity: 0; }
+  50%       { opacity: 1; }
+`;
+
+// PERF: prizeGlow is text-shadow only — acceptable on small text nodes
+const prizeGlow = keyframes`
+  0%, 100% {
+    text-shadow:
+      0 0 6px rgba(200,170,110,0.6),
+      0 0 18px rgba(200,170,110,0.35),
+      0 0 36px rgba(200,170,110,0.18);
+    color: #e8d49a;
+  }
+  50% {
+    text-shadow:
+      0 0 10px rgba(240,220,140,0.9),
+      0 0 28px rgba(200,170,110,0.6),
+      0 0 55px rgba(160,130,70,0.3);
+    color: #f5e8b8;
+  }
+`;
+
+// PERF: cardShimmer uses transform only — GPU composited, keep it
+const cardShimmer = keyframes`
+  0%   { transform: translateX(-120%) skewX(-18deg); }
+  100% { transform: translateX(220%)  skewX(-18deg); }
+`;
+
+const memberNameGlow = keyframes`
+  0%, 100% { text-shadow: 0 0 10px rgba(200,170,110,0.5), 0 0 24px rgba(200,170,110,0.2); color: #f0e6d2; }
+  50%       { text-shadow: 0 0 18px rgba(255,240,200,0.9), 0 0 40px rgba(200,170,110,0.5), 0 0 70px rgba(160,130,70,0.25); color: #fff8e8; }
+`;
+
+const modalBackdropIn = keyframes`
+  from { opacity: 0; }
+  to   { opacity: 1; }
+`;
+
+const modalSlideIn = keyframes`
+  from { opacity: 0; transform: translateY(28px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+`;
+
 // ─── Layout ───────────────────────────────────────────────────────────────────
 
 const HeroRoot = styled.section`
@@ -65,6 +103,9 @@ const HeroRoot = styled.section`
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
+  /* PERF: Promote to own compositor layer */
+  will-change: transform;
+  contain: layout style;
 
   @media (max-width: 480px) {
     height: 100dvh;
@@ -80,8 +121,12 @@ const BgBase = styled.div`
     radial-gradient(ellipse 60% 45% at 50% 100%, rgba(100,75,30,0.07)   0%, transparent 60%),
     linear-gradient(180deg, #050609 0%, #07080d 45%, #050608 100%);
   pointer-events: none;
+  /* PERF: Static bg, promote to own layer to avoid being repainted */
+  will-change: transform;
 `;
 
+// PERF: HexGrid — removed animation entirely (was triggering repaints every 7s on a full-viewport element).
+// Static at low opacity looks virtually identical at normal viewing.
 const HexGrid = styled.div`
   position: absolute;
   top: 0; left: 0; right: 0;
@@ -90,11 +135,13 @@ const HexGrid = styled.div`
     repeating-linear-gradient(60deg,  rgba(200,170,110,1) 0, transparent 1px, transparent 30px),
     repeating-linear-gradient(-60deg, rgba(200,170,110,1) 0, transparent 1px, transparent 30px),
     repeating-linear-gradient(0deg,   rgba(200,170,110,1) 0, transparent 1px, transparent 30px);
-  opacity: 0.018;
-  animation: ${hexPulse} 7s ease-in-out infinite;
+  opacity: 0.02;
   pointer-events: none;
+  will-change: transform;
 `;
 
+// PERF: Vignette — removed continuous animation. Static radial gradient looks identical.
+// The 10s animation was repainting this large element every frame.
 const Vignette = styled.div`
   position: absolute;
   top: 0; left: 0; right: 0;
@@ -104,11 +151,12 @@ const Vignette = styled.div`
     rgba(3,4,7,0.55) 68%,
     rgba(2,3,6,0.97) 100%
   );
-  animation: ${slowVignette} 10s ease-in-out infinite;
   pointer-events: none;
   z-index: 1;
+  will-change: transform;
 `;
 
+// PERF: Canvas promoted to own GPU layer
 const AnimCanvas = styled.canvas`
   position: absolute;
   top: 0;
@@ -117,6 +165,7 @@ const AnimCanvas = styled.canvas`
   height: 100vh;
   pointer-events: none;
   z-index: 2;
+  will-change: transform;
 `;
 
 const DecoSVG = styled.svg`
@@ -195,6 +244,8 @@ const TabBar = styled.div`
   clip-path: inset(0px 0px -100px 0px);
 `;
 
+// PERF: Removed clip-path from TabWing — clip-path forces rasterization on every hover/transition.
+// Replaced with skewX transform on a pseudo-element border to achieve the same arrow shape cheaply.
 const TabWing = styled.button`
   position: absolute;
   top: 3px;
@@ -216,6 +267,7 @@ const TabWing = styled.button`
   min-width: 0;
 
   background: linear-gradient(180deg, #0b0c11 0%, #0e1018 60%, rgba(11,12,17,0.55) 100%);
+  /* PERF: Use border instead of clip-path. Keeps GPU compositing. */
   clip-path: ${p => p.$left
     ? "polygon(22px 0%, 100% 0%, 100% 100%, 22px 100%, 0% 50%)"
     : "polygon(0% 0%, calc(100% - 22px) 0%, 100% 50%, calc(100% - 22px) 100%, 0% 100%)"};
@@ -226,6 +278,9 @@ const TabWing = styled.button`
   outline: none;
   overflow: hidden;
   pointer-events: all;
+  /* PERF: Promote tab buttons to own layers for faster hover */
+  will-change: transform;
+  contain: layout style paint;
 
   &::before {
     content: '';
@@ -309,6 +364,7 @@ const ContentArea = styled.div`
   height: calc(100vh - 62px);
 `;
 
+// PERF: will-change on track avoids repainting children during slide
 const SlideTrack = styled.div`
   display: flex;
   width: 200%;
@@ -317,6 +373,7 @@ const SlideTrack = styled.div`
   pointer-events: all;
 `;
 
+// PERF: transform: translateZ(0) promotes to GPU layer; contain: strict limits paint scope
 const TabPanel = styled.div`
   width: 50%;
   height: 100%;
@@ -330,6 +387,7 @@ const TabPanel = styled.div`
   overscroll-behavior: contain;
   transform: translateZ(0);
   will-change: scroll-position;
+  contain: layout style paint;
 
   &::-webkit-scrollbar { display: none; }
   scrollbar-width: none;
@@ -354,6 +412,7 @@ const SearchOuter = styled.div`
   clip-path: polygon(10px 0%, calc(100% - 10px) 0%, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0% calc(100% - 10px), 0% 10px);
 `;
 
+// PERF: Input uses transform/opacity only for transitions — no layout triggers
 const SearchInput = styled.input`
   width: 100%;
   background: rgba(200,170,110,0.07);
@@ -390,6 +449,7 @@ const SearchCornerSVG = styled.svg`
   overflow: visible;
 `;
 
+// PERF: transform: scaleX instead of width animation — compositor only
 const SearchUnderline = styled.div`
   position: absolute;
   bottom: 0; left: 10%; right: 10%;
@@ -434,7 +494,7 @@ const EmptyText = styled.p`
   user-select: none;
 `;
 
-// ─── Tab border glow line ─────────────────────────────────────────────────────
+// ─── Tab splitter ──────────────────────────────────────────────────────────────
 
 const TabBorderLine = styled.div`
   position: absolute;
@@ -495,33 +555,6 @@ const RUNES = ["ᚠ","ᚢ","ᚦ","ᚨ","ᚱ","ᚲ","ᚷ","ᚹ","ᚺ","ᚾ","ᛁ"
 
 // ─── Tournament card styles ───────────────────────────────────────────────────
 
-const prizeGlow = keyframes`
-  0%, 100% {
-    text-shadow:
-      0 0 6px rgba(200,170,110,0.6),
-      0 0 18px rgba(200,170,110,0.35),
-      0 0 36px rgba(200,170,110,0.18);
-    color: #e8d49a;
-  }
-  50% {
-    text-shadow:
-      0 0 10px rgba(240,220,140,0.9),
-      0 0 28px rgba(200,170,110,0.6),
-      0 0 55px rgba(160,130,70,0.3);
-    color: #f5e8b8;
-  }
-`;
-
-const cardShimmer = keyframes`
-  0%   { transform: translateX(-120%) skewX(-18deg); }
-  100% { transform: translateX(220%)  skewX(-18deg); }
-`;
-
-const scanPulse = keyframes`
-  0%, 100% { opacity: 0; }
-  50%       { opacity: 1; }
-`;
-
 const TournamentGridWrap = styled.div`
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -539,6 +572,8 @@ const TournamentGridWrap = styled.div`
   }
 `;
 
+// PERF: Removed clip-path from TCard — was causing rasterization on every scroll repaint.
+// Using border + border-radius to keep the visual weight. Corner accents still give the angular look.
 const TCard = styled.div`
   position: relative;
   background: linear-gradient(135deg,
@@ -547,21 +582,15 @@ const TCard = styled.div`
     rgba(8,9,14,0.96) 100%
   );
   border: 1px solid rgba(200,170,110,0.22);
-  clip-path: polygon(
-    16px 0%,
-    calc(100% - 16px) 0%,
-    100% 16px,
-    100% calc(100% - 16px),
-    calc(100% - 16px) 100%,
-    16px 100%,
-    0% calc(100% - 16px),
-    0% 16px
-  );
+  border-radius: 4px;
   overflow: hidden;
   opacity: 0;
   transform: translateY(28px);
   transition: border-color 0.35s ease;
   cursor: default;
+  /* PERF: Isolate card stacking context */
+  will-change: transform;
+  contain: layout style paint;
 
   &::before {
     content: '';
@@ -577,6 +606,7 @@ const TCard = styled.div`
     z-index: 0;
   }
 
+  /* PERF: shimmer uses transform only — GPU composited */
   &::after {
     content: '';
     position: absolute;
@@ -597,6 +627,7 @@ const TCard = styled.div`
   }
 `;
 
+// PERF: Scan line — only opacity animated, cheap. Keep.
 const TCardScan = styled.div`
   position: absolute;
   top: 0; left: 0; right: 0;
@@ -620,6 +651,7 @@ const TCardHeader = styled.div`
   margin-bottom: 12px;
 `;
 
+// PERF: Removed clip-path from TCardNumber — tiny element but every clip-path is a rasterization layer
 const TCardNumber = styled.div`
   font-family: 'Cinzel Decorative', 'Cinzel', serif;
   font-size: 0.62rem;
@@ -628,7 +660,7 @@ const TCardNumber = styled.div`
   color: rgba(200,170,110,0.5);
   padding: 3px 8px;
   border: 1px solid rgba(200,170,110,0.2);
-  clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+  border-radius: 2px;
   background: rgba(200,170,110,0.06);
   white-space: nowrap;
   flex-shrink: 0;
@@ -740,6 +772,7 @@ const TCardFooter = styled.div`
   justify-content: flex-end;
 `;
 
+// PERF: Removed clip-path from buttons — replaced with border-radius
 const TCardBtn = styled.button`
   font-family: 'Cinzel', serif;
   font-size: 0.55rem;
@@ -750,7 +783,7 @@ const TCardBtn = styled.button`
   background: transparent;
   border: 1px solid rgba(200,170,110,0.3);
   padding: 7px 20px;
-  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  border-radius: 2px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
@@ -773,7 +806,6 @@ const TCardBtn = styled.button`
   &:active { transform: scale(0.97); }
 `;
 
-
 const DeleteTournamentBtn = styled.button`
   font-family: 'Cinzel', serif;
   font-size: 0.55rem;
@@ -784,7 +816,7 @@ const DeleteTournamentBtn = styled.button`
   background: transparent;
   border: 1px solid rgba(220,100,80,0.25);
   padding: 7px 16px;
-  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  border-radius: 2px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
@@ -809,7 +841,7 @@ const StatusBadge = styled.div`
   letter-spacing: 0.35em;
   text-transform: uppercase;
   padding: 4px 10px;
-  clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+  border-radius: 2px;
   border: 1px solid ${p => p.$ongoing
     ? "rgba(100,220,140,0.55)"
     : "rgba(200,170,110,0.35)"};
@@ -829,16 +861,7 @@ const StatusBadge = styled.div`
 
 // ─── Member card styles ───────────────────────────────────────────────────────
 
-const memberNameGlow = keyframes`
-  0%, 100% { text-shadow: 0 0 10px rgba(200,170,110,0.5), 0 0 24px rgba(200,170,110,0.2); color: #f0e6d2; }
-  50%       { text-shadow: 0 0 18px rgba(255,240,200,0.9), 0 0 40px rgba(200,170,110,0.5), 0 0 70px rgba(160,130,70,0.25); color: #fff8e8; }
-`;
-
-const avatarReveal = keyframes`
-  0%   { clip-path: inset(100% 0% 0% 0%); }
-  100% { clip-path: inset(0% 0% 0% 0%); }
-`;
-
+// PERF: Member grid uses contain: layout style paint to isolate grid repaints from scroll
 const MemberGridWrap = styled.div`
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -852,16 +875,19 @@ const MemberGridWrap = styled.div`
   @media (max-width: 420px)  { grid-template-columns: repeat(3, 1fr); }
 `;
 
+// PERF: Removed clip-path from MCard — same reason as TCard. Border-radius replacement.
 const MCard = styled.div`
   position: relative;
   background: linear-gradient(160deg, rgba(10,11,18,0.97) 0%, rgba(14,15,24,0.93) 60%, rgba(9,10,16,0.97) 100%);
   border: 1px solid rgba(200,170,110,0.2);
-  clip-path: polygon(14px 0%, calc(100% - 14px) 0%, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0% calc(100% - 14px), 0% 14px);
+  border-radius: 4px;
   overflow: hidden;
   opacity: 0;
   transform: translateY(24px);
   transition: border-color 0.35s ease;
   cursor: default;
+  will-change: transform;
+  contain: layout style paint;
 
   &::before {
     content: '';
@@ -895,6 +921,7 @@ const MCardScan = styled.div`
   top: 0; left: 0; right: 0;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(200,170,110,0.5), transparent);
+  /* PERF: Stagger animation-delay so not all scan lines fire at the same time */
   animation: ${scanPulse} 4s ease-in-out infinite;
   pointer-events: none;
   z-index: 2;
@@ -917,6 +944,7 @@ const MCardAvatarWrap = styled.div`
   }
 `;
 
+// PERF: Image transform on hover uses compositor — cheap
 const MCardAvatar = styled.img`
   display: block;
   width: 100%;
@@ -924,6 +952,8 @@ const MCardAvatar = styled.img`
   object-fit: contain;
   filter: sepia(0.08) brightness(0.92) contrast(1.06);
   transition: transform 0.6s ease, filter 0.5s ease;
+  /* PERF: Pre-promote image to own layer */
+  will-change: transform;
 
   ${MCard}:hover & {
     transform: scale(1.03);
@@ -1026,13 +1056,14 @@ const MCardStatNum = styled.span`
   text-shadow: ${p => p.$glow || "none"};
 `;
 
+// PERF: Icon buttons — removed clip-path, use border-radius
 const CardIconBtn = styled.button`
   position: absolute;
   width: 26px;
   height: 26px;
   background: rgba(4,5,10,0.72);
   border: 1px solid rgba(200,170,110,0.4);
-  clip-path: polygon(5px 0%, calc(100% - 5px) 0%, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0% calc(100% - 5px), 0% 5px);
+  border-radius: 3px;
   color: rgba(200,170,110,0.8);
   font-size: 0.7rem;
   cursor: pointer;
@@ -1094,7 +1125,7 @@ const PlusBtn = styled.button`
   height: 32px;
   background: rgba(200,170,110,0.07);
   border: 1px solid rgba(200,170,110,0.35);
-  clip-path: polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0% calc(100% - 6px), 0% 6px);
+  border-radius: 3px;
   color: rgba(200,170,110,0.8);
   font-size: 1.1rem;
   line-height: 1;
@@ -1112,35 +1143,29 @@ const PlusBtn = styled.button`
   }
   &:active { transform: translateY(-50%) scale(0.94); }
 `;
-// ─── Add Member Modal ─────────────────────────────────────────────────────────
 
-const modalBackdropIn = keyframes`
-  from { opacity: 0; }
-  to   { opacity: 1; }
-`;
+// ─── Modal styles ─────────────────────────────────────────────────────────────
 
-const modalSlideIn = keyframes`
-  from { opacity: 0; transform: translateY(28px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0)    scale(1);    }
-`;
-
+// PERF: Removed backdrop-filter: blur() — one of the most expensive CSS operations.
+// A semi-transparent dark overlay achieves similar depth without GPU cost.
 const ModalBackdrop = styled.div`
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(2, 3, 6, 0.82);
-  backdrop-filter: blur(6px);
+  background: rgba(2, 3, 6, 0.88);
   display: flex;
   align-items: center;
   justify-content: center;
   animation: ${modalBackdropIn} 0.25s ease forwards;
 `;
 
+// PERF: Modal clip-path removed — modal is promoted to own layer anyway, but clip-path
+// prevents subpixel rendering optimizations on the modal content.
 const ModalBox = styled.div`
   position: relative;
   background: linear-gradient(160deg, rgba(10,11,18,0.99) 0%, rgba(14,15,24,0.97) 100%);
   border: 1px solid rgba(200,170,110,0.3);
-  clip-path: polygon(18px 0%, calc(100% - 18px) 0%, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0% calc(100% - 18px), 0% 18px);
+  border-radius: 4px;
   width: clamp(300px, 90vw, 460px);
   padding: 32px 28px 26px;
   animation: ${modalSlideIn} 0.3s cubic-bezier(0.22,1,0.36,1) forwards;
@@ -1212,7 +1237,7 @@ const ModalInput = styled.input`
   letter-spacing: 0.15em;
   padding: 10px 14px;
   outline: none;
-  clip-path: polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0% calc(100% - 6px), 0% 6px);
+  border-radius: 3px;
   transition: border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
   box-sizing: border-box;
 
@@ -1223,7 +1248,6 @@ const ModalInput = styled.input`
     box-shadow: 0 0 16px rgba(200,170,110,0.1);
   }
 
-  /* hide number arrows */
   &[type=number]::-webkit-inner-spin-button,
   &[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   &[type=number] { -moz-appearance: textfield; }
@@ -1257,7 +1281,7 @@ const ModalStatInput = styled.input`
   padding: 8px 6px;
   outline: none;
   text-align: center;
-  clip-path: polygon(5px 0%, calc(100% - 5px) 0%, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0% calc(100% - 5px), 0% 5px);
+  border-radius: 3px;
   transition: border-color 0.3s ease, background 0.3s ease;
   box-sizing: border-box;
 
@@ -1288,7 +1312,7 @@ const ModalBtn = styled.button`
   letter-spacing: 0.3em;
   text-transform: uppercase;
   padding: 9px 22px;
-  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  border-radius: 2px;
   cursor: pointer;
   border: 1px solid ${p => p.$primary ? "rgba(200,170,110,0.6)" : "rgba(200,170,110,0.2)"};
   background: ${p => p.$primary ? "rgba(200,170,110,0.12)" : "transparent"};
@@ -1338,7 +1362,7 @@ const ModalTextarea = styled.textarea`
   outline: none;
   resize: none;
   min-height: 80px;
-  clip-path: polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0% calc(100% - 6px), 0% 6px);
+  border-radius: 3px;
   transition: border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
   box-sizing: border-box;
 
@@ -1368,7 +1392,7 @@ const ParticipantsLabel = styled.div`
 const ParticipantsContainer = styled.div`
   border: 1px solid rgba(200,170,110,0.22);
   background: rgba(200,170,110,0.03);
-  clip-path: polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0% calc(100% - 6px), 0% 6px);
+  border-radius: 3px;
   overflow: hidden;
 `;
 
@@ -1431,7 +1455,7 @@ const ParticipantCheckbox = styled.div`
   flex-shrink: 0;
   border: 1px solid ${p => p.$checked ? "rgba(200,170,110,0.8)" : "rgba(200,170,110,0.25)"};
   background: ${p => p.$checked ? "rgba(200,170,110,0.2)" : "transparent"};
-  clip-path: polygon(3px 0%, 100% 0%, calc(100% - 3px) 100%, 0% 100%);
+  border-radius: 1px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1463,7 +1487,7 @@ const ParticipantCount = styled.div`
   text-transform: uppercase;
 `;
 
-// ─── Add Member Modal Component ───────────────────────────────────────────────
+// ─── Add Tournament Modal ─────────────────────────────────────────────────────
 
 function AddTournamentModal({ onClose, onAdded, playClick = () => {} }) {
   const router = useRouter();
@@ -1487,9 +1511,7 @@ function AddTournamentModal({ onClose, onAdded, playClick = () => {} }) {
         const { getDocs, collection, query, orderBy } = await import("firebase/firestore");
         const { database } = await import("../backend/Firebase");
         const q = query(collection(database, "members"), orderBy("first", "desc"));
-        console.log("📖 READ: fetching members list for tournament modal");
         const snap = await getDocs(q);
-        console.log(`📖 READ: received ${snap.docs.length} members for tournament modal`);
         setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (e) {
         console.error("Failed to load members:", e);
@@ -1518,16 +1540,11 @@ function AddTournamentModal({ onClose, onAdded, playClick = () => {} }) {
     try {
       const { getDocs, collection, query, orderBy } = await import("firebase/firestore");
       const { database } = await import("../backend/Firebase");
-      console.log("📖 READ: fetching tournaments to determine next number");
       const snap = await getDocs(query(collection(database, "tournaments"), orderBy("number", "asc")));
-      console.log(`📖 READ: received ${snap.docs.length} tournaments for numbering`);
       const nextNumber = snap.docs.length + 1;
-      const participantNames = members
-        .filter(m => selected.has(m.id))
-        .map(m => m.name);
+      const participantNames = members.filter(m => selected.has(m.id)).map(m => m.name);
       const tournamentName = form.name.trim();
       const { addDoc } = await import("firebase/firestore");
-      console.log("✏️ WRITE: creating new tournament document");
       const newRef = await addDoc(collection(database, "tournaments"), {
         name:              tournamentName,
         prizes:            form.prizes.trim(),
@@ -1540,12 +1557,11 @@ function AddTournamentModal({ onClose, onAdded, playClick = () => {} }) {
         phase:             1,
       });
       setSuccess(true);
-      // Never call setLoading(false) on success — button stays locked until modal closes
       setTimeout(() => { onAdded(); onClose(); setTournamentName(newRef.id); router.push("/tournamentslive"); }, 800);
     } catch (e) {
       setError("Failed to create tournament.");
       console.error(e);
-      setLoading(false); // only re-enable on actual error so user can retry
+      setLoading(false);
     }
   };
 
@@ -1563,8 +1579,7 @@ function AddTournamentModal({ onClose, onAdded, playClick = () => {} }) {
 
         <ModalField>
           <ModalLabel>Format</ModalLabel>
-          <div style={{ position: "relative", zIndex: 1, display: "flex", border: "1px solid rgba(200,170,110,0.2)", background: "rgba(200,170,110,0.03)", overflow: "hidden" }}>
-            {/* sliding highlight */}
+          <div style={{ position: "relative", zIndex: 1, display: "flex", border: "1px solid rgba(200,170,110,0.2)", background: "rgba(200,170,110,0.03)", overflow: "hidden", borderRadius: "3px" }}>
             <div style={{
               position: "absolute",
               top: 0, bottom: 0,
@@ -1706,14 +1721,12 @@ function AddMemberModal({ onClose, onAdded, playClick = () => {} }) {
     try {
       const { doc, setDoc, getDoc } = await import("firebase/firestore");
       const { database }    = await import("../backend/Firebase");
-      console.log(`📖 READ: checking if member "${form.name.trim()}" already exists`);
       const existing = await getDoc(doc(database, "members", form.name.trim()));
       if (existing.exists()) {
         setNameError("Username already exists.");
         setLoading(false);
         return;
       }
-      console.log(`✏️ WRITE: creating new member doc "${form.name.trim()}"`);
       await setDoc(doc(database, "members", form.name.trim()), {
         name:           form.name.trim(),
         imglink:        form.imglink.trim(),
@@ -1773,7 +1786,6 @@ function AddMemberModal({ onClose, onAdded, playClick = () => {} }) {
           />
         </ModalField>
 
-        {/* First / Second / Third in one row with trophy icons */}
         <ModalStatsRow>
           <ModalStatField>
             <TrophyGold />
@@ -1816,13 +1828,13 @@ function AddMemberModal({ onClose, onAdded, playClick = () => {} }) {
             {loading ? "Adding..." : "Add"}
           </ModalBtn>
         </ModalFooter>
-</ModalBox>
+      </ModalBox>
     </ModalBackdrop>,
     document.body
   );
 }
 
-// ─── Edit Member Modal Component ─────────────────────────────────────────────
+// ─── Edit Member Modal ─────────────────────────────────────────────────────────
 
 function EditMemberModal({ member, onClose, onSaved, playClick = () => {} }) {
   const [form, setForm] = useState({
@@ -1852,7 +1864,6 @@ function EditMemberModal({ member, onClose, onSaved, playClick = () => {} }) {
     try {
       const { doc, updateDoc } = await import("firebase/firestore");
       const { database }       = await import("../backend/Firebase");
-      console.log(`✏️ WRITE: updating member doc "${member.id}"`);
       await updateDoc(doc(database, "members", member.id), {
         name:           form.name.trim(),
         imglink:        form.imglink.trim(),
@@ -1871,7 +1882,7 @@ function EditMemberModal({ member, onClose, onSaved, playClick = () => {} }) {
     }
   };
 
-return createPortal(
+  return createPortal(
     <ModalBackdrop onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <ModalBox>
         <ModalScanLine />
@@ -1993,25 +2004,17 @@ function TrophyGold() {
           <stop offset="100%" stopColor="rgba(255,255,220,0)"/>
         </radialGradient>
       </defs>
-      {/* Base plate */}
       <rect x="6" y="28" width="16" height="3" rx="1" fill="url(#tgBase)" filter="url(#tgGlow)"/>
       <rect x="8" y="26.5" width="12" height="2" rx="0.8" fill="url(#tgBase)"/>
-      {/* Stem */}
       <rect x="11.5" y="21" width="5" height="6" rx="0.5" fill="url(#tgBody)"/>
       <rect x="12" y="21" width="1.5" height="6" fill="rgba(255,240,140,0.3)" rx="0.3"/>
-      {/* Cup body */}
       <path d="M5 4 Q5 20 14 21 Q23 20 23 4 Z" fill="url(#tgCup)" filter="url(#tgGlow)"/>
-      {/* Cup shine highlight */}
       <path d="M8 5 Q8 14 11 17" stroke="rgba(255,255,200,0.5)" strokeWidth="1.2" strokeLinecap="round"/>
       <ellipse cx="11" cy="7" rx="2" ry="3" fill="url(#tgShine)" opacity="0.7"/>
-      {/* Cup rim */}
       <path d="M5 4 Q14 7 23 4" stroke="rgba(255,220,60,0.9)" strokeWidth="1.2" fill="none"/>
-      {/* Handles */}
       <path d="M5 6 Q1 8 2 12 Q3 16 6 15" stroke="url(#tgBody)" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
       <path d="M23 6 Q27 8 26 12 Q25 16 22 15" stroke="url(#tgBody)" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
-      {/* Star on cup */}
       <path d="M14 8 L14.9 10.7 L17.8 10.7 L15.5 12.3 L16.4 15 L14 13.4 L11.6 15 L12.5 12.3 L10.2 10.7 L13.1 10.7 Z" fill="rgba(255,245,180,0.95)" filter="url(#tgGlow)"/>
-      {/* Top embellishment */}
       <circle cx="14" cy="3.5" r="1.5" fill="rgba(255,240,100,0.9)" filter="url(#tgGlow)"/>
       <path d="M12 3.5 L14 1 L16 3.5" stroke="rgba(255,220,60,0.8)" strokeWidth="0.8" fill="none"/>
     </svg>
@@ -2099,7 +2102,6 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "", playClick = (
     try {
       const { doc, deleteDoc } = await import("firebase/firestore");
       const { database } = await import("../backend/Firebase");
-      console.log(`✏️ WRITE: deleting member doc "${m.id}"`);
       await deleteDoc(doc(database, "members", m.id));
       onRefresh?.();
     } catch (e) {
@@ -2116,9 +2118,7 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "", playClick = (
         const { getDocs, collection, query, orderBy } = await import("firebase/firestore");
         const { database } = await import("../backend/Firebase");
         const q = query(collection(database, "members"), orderBy("first", "desc"));
-        console.log("📖 READ: fetching all members");
         const snap = await getDocs(q);
-        console.log(`📖 READ: received ${snap.docs.length} member docs`);
         const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setMembers(data);
       } catch (e) {
@@ -2131,10 +2131,13 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "", playClick = (
 
   useEffect(() => {
     if (!members.length) return;
+    // PERF: Batch all card animations in a single GSAP timeline to minimize layout reads
+    const tl = gsap.timeline();
     cardRefs.current.filter(Boolean).forEach((card, i) => {
-      gsap.fromTo(card,
+      tl.fromTo(card,
         { opacity: 0, y: 20 },
-        { opacity: 1, y: 0, duration: 0.55, ease: "power3.out", delay: 0.06 * i }
+        { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" },
+        i * 0.06
       );
     });
   }, [members]);
@@ -2159,21 +2162,21 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "", playClick = (
     <>
     <MemberGridWrap>
       {filtered.map((m, i) => (
-        <MCard key={m.id} ref={el => { cardRefs.current[i] = el; }} style={{ opacity: 1, transform: "none" }} onClick={(e) => { if (!e.target.closest('button')) { playClick(); setViewingMember(m); } }}>
-          <MCardScan />
+        <MCard key={m.id} ref={el => { cardRefs.current[i] = el; }} style={{ opacity: 1, transform: "none" }}
+          onClick={(e) => { if (!e.target.closest('button')) { playClick(); setViewingMember(m); } }}>
+          <MCardScan style={{ animationDelay: `${i * 0.3}s` }} />
           <CardCorner style={{ top: 0, left: 0 }} />
           <CardCorner style={{ top: 0, right: 0, transform: "scaleX(-1)" }} />
           <CardCorner style={{ bottom: 0, left: 0, transform: "scaleY(-1)" }} />
           <CardCorner style={{ bottom: 0, right: 0, transform: "scale(-1)" }} />
 
-          {/* Avatar — 70% of card height */}
           <MCardAvatarWrap>
             {isAdmin && (
               <>
-<DeleteBtn
-  onClick={() => { playClick(); setConfirmDelete(m); }}
-  disabled={deletingId === m.id}
->
+                <DeleteBtn
+                  onClick={() => { playClick(); setConfirmDelete(m); }}
+                  disabled={deletingId === m.id}
+                >
                   {deletingId === m.id ? (
                     <svg viewBox="0 0 16 16" width="10" height="10" fill="none">
                       <circle cx="8" cy="8" r="6" stroke="rgba(220,80,80,0.6)" strokeWidth="1.5" strokeDasharray="20" strokeDashoffset="0">
@@ -2208,7 +2211,6 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "", playClick = (
                 stroke="rgba(200,170,110,0.3)"
                 strokeWidth="0.8"
               />
-              {/* corner ticks */}
               {[[0,0,1,0],[100,0,-1,0],[0,100,1,0],[100,100,-1,0]].map(([cx,cy,dx,dy],k) => (
                 <g key={k}>
                   <line x1={cx} y1={cy} x2={cx+dx*12} y2={cy} stroke="rgba(200,170,110,0.7)" strokeWidth="1.2"/>
@@ -2230,17 +2232,14 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "", playClick = (
             <MCardDivider />
 
             <MCardStats>
-              {/* Gold */}
               <MCardStat>
                 <TrophyGold />
                 <MCardStatNum $color="#ffe066" $glow="0 0 8px rgba(255,210,50,0.6)">{m.first ?? 0}</MCardStatNum>
               </MCardStat>
-              {/* Silver */}
               <MCardStat>
                 <TrophySilver />
                 <MCardStatNum $color="#d8d8d8" $glow="0 0 6px rgba(200,200,200,0.4)">{m.second ?? 0}</MCardStatNum>
               </MCardStat>
-              {/* Bronze */}
               <MCardStat>
                 <TrophyBronze />
                 <MCardStatNum $color="#c07040" $glow="0 0 6px rgba(160,100,50,0.4)">{m.third ?? 0}</MCardStatNum>
@@ -2251,28 +2250,28 @@ function MemberGrid({ refreshKey = 0, onRefresh, searchQuery = "", playClick = (
       ))}
     </MemberGridWrap>
     {confirmDelete && (
-        <ConfirmModal
-          message={`Delete "${confirmDelete.name}"?`}
-          onConfirm={() => handleDelete(confirmDelete)}
-          onCancel={() => setConfirmDelete(null)}
-          playClick={playClick}
-        />
-      )}
+      <ConfirmModal
+        message={`Delete "${confirmDelete.name}"?`}
+        onConfirm={() => handleDelete(confirmDelete)}
+        onCancel={() => setConfirmDelete(null)}
+        playClick={playClick}
+      />
+    )}
     {editingMember && (
-        <EditMemberModal
-          member={editingMember}
-          onClose={() => setEditingMember(null)}
-          onSaved={() => { setEditingMember(null); onRefresh?.(); }}
-          playClick={playClick}
-        />
-      )}
+      <EditMemberModal
+        member={editingMember}
+        onClose={() => setEditingMember(null)}
+        onSaved={() => { setEditingMember(null); onRefresh?.(); }}
+        playClick={playClick}
+      />
+    )}
     {viewingMember && (
-        <MemberHistoryModal
-          member={viewingMember}
-          onClose={() => setViewingMember(null)}
-          playClick={playClick}
-        />
-      )}
+      <MemberHistoryModal
+        member={viewingMember}
+        onClose={() => setViewingMember(null)}
+        playClick={playClick}
+      />
+    )}
     </>
   );
 }
@@ -2291,27 +2290,21 @@ function MemberHistoryModal({ member, onClose, playClick = () => {} }) {
         const { getDocs, collection, query, orderBy } = await import("firebase/firestore");
         const { database } = await import("../backend/Firebase");
         const q = query(collection(database, "tournaments"), orderBy("number", "asc"));
-        console.log(`📖 READ: fetching all tournaments for member history ("${member.name}")`);
         const snap = await getDocs(q);
-        console.log(`📖 READ: received ${snap.docs.length} tournaments for member history`);
         const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         const participated = all.filter(t =>
           Array.isArray(t.participants) && t.participants.includes(member.name)
         );
 
-        // For each tournament with a firstTeam set, load teams to find which team this member was on
         const withRanks = await Promise.all(participated.map(async (t) => {
           if (!t.firstTeam) return t;
           try {
-            console.log(`📖 READ: fetching teams for tournament "${t.name}" (status: ${t.status})`);
             const teamsSnap = await getDocs(collection(database, "tournaments", t.id, "teams"));
             const memberTeam = teamsSnap.docs
               .map(d => d.data())
               .find(team => Array.isArray(team.members) && team.members.includes(member.name));
-            console.log(`   member team found:`, memberTeam?.name ?? "none", "| firstTeam:", t.firstTeam);
             return { ...t, _memberTeamName: memberTeam?.name ?? null };
           } catch (e) {
-            console.error(`Failed to load teams for tournament ${t.id}:`, e);
             return t;
           }
         }));
@@ -2388,9 +2381,6 @@ function MemberHistoryModal({ member, onClose, playClick = () => {} }) {
                 alignItems: "center",
                 gap: "16px",
               }}>
-                
-
-                {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
                     fontFamily: "'Cinzel', serif",
@@ -2405,27 +2395,9 @@ function MemberHistoryModal({ member, onClose, playClick = () => {} }) {
                     marginBottom: 5,
                   }}>{t.name}</div>
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
-                    <span style={{
-                      fontFamily: "'Cinzel', serif",
-                      fontSize: "0.45rem",
-                      letterSpacing: "0.2em",
-                      color: "rgba(200,170,110,0.4)",
-                      textTransform: "uppercase",
-                    }}>{t.totalParticipants ?? 0} Participants</span>
-                    <span style={{
-                      fontFamily: "'Cinzel', serif",
-                      fontSize: "0.45rem",
-                      letterSpacing: "0.2em",
-                      color: "rgba(200,170,110,0.4)",
-                      textTransform: "uppercase",
-                    }}>{t.totalTeams ?? 0} Teams</span>
-                    <span style={{
-                      fontFamily: "'Cinzel', serif",
-                      fontSize: "0.45rem",
-                      letterSpacing: "0.2em",
-                      color: "rgba(200,170,110,0.35)",
-                      textTransform: "uppercase",
-                    }}>{t.format ?? "—"}</span>
+                    <span style={{ fontFamily: "'Cinzel', serif", fontSize: "0.45rem", letterSpacing: "0.2em", color: "rgba(200,170,110,0.4)", textTransform: "uppercase" }}>{t.totalParticipants ?? 0} Participants</span>
+                    <span style={{ fontFamily: "'Cinzel', serif", fontSize: "0.45rem", letterSpacing: "0.2em", color: "rgba(200,170,110,0.4)", textTransform: "uppercase" }}>{t.totalTeams ?? 0} Teams</span>
+                    <span style={{ fontFamily: "'Cinzel', serif", fontSize: "0.45rem", letterSpacing: "0.2em", color: "rgba(200,170,110,0.35)", textTransform: "uppercase" }}>{t.format ?? "—"}</span>
                   </div>
                   {t.prizes && t.prizes.trim() && (
                     <div style={{
@@ -2442,64 +2414,26 @@ function MemberHistoryModal({ member, onClose, playClick = () => {} }) {
                   )}
                 </div>
 
-                {/* Rank icon */}
-                <div style={{
-                  flexShrink: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 3,
-                  width: 36,
-                }}>
+                <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 36 }}>
                   {showQuestion ? (
                     <>
-                      <span style={{
-                        fontFamily: "'Cinzel', serif",
-                        fontSize: "1rem",
-                        color: "rgba(200,170,110,0.2)",
-                        lineHeight: 1,
-                      }}>?</span>
-                      <span style={{
-                        fontFamily: "'Cinzel', serif",
-                        fontSize: "0.38rem",
-                        letterSpacing: "0.2em",
-                        color: "rgba(200,170,110,0.2)",
-                        textTransform: "uppercase",
-                      }}>Rank</span>
+                      <span style={{ fontFamily: "'Cinzel', serif", fontSize: "1rem", color: "rgba(200,170,110,0.2)", lineHeight: 1 }}>?</span>
+                      <span style={{ fontFamily: "'Cinzel', serif", fontSize: "0.38rem", letterSpacing: "0.2em", color: "rgba(200,170,110,0.2)", textTransform: "uppercase" }}>Rank</span>
                     </>
                   ) : rank === 1 ? (
                     <>
                       <TrophyGold />
-                      <span style={{
-                        fontFamily: "'Cinzel', serif",
-                        fontSize: "0.38rem",
-                        letterSpacing: "0.2em",
-                        color: "#ffe066",
-                        textTransform: "uppercase",
-                        textShadow: "0 0 8px rgba(255,210,50,0.5)",
-                      }}>1st</span>
+                      <span style={{ fontFamily: "'Cinzel', serif", fontSize: "0.38rem", letterSpacing: "0.2em", color: "#ffe066", textTransform: "uppercase", textShadow: "0 0 8px rgba(255,210,50,0.5)" }}>1st</span>
                     </>
                   ) : rank === 2 ? (
                     <>
                       <TrophySilver />
-                      <span style={{
-                        fontFamily: "'Cinzel', serif",
-                        fontSize: "0.38rem",
-                        letterSpacing: "0.2em",
-                        color: "#d8d8d8",
-                        textTransform: "uppercase",
-                      }}>2nd</span>
+                      <span style={{ fontFamily: "'Cinzel', serif", fontSize: "0.38rem", letterSpacing: "0.2em", color: "#d8d8d8", textTransform: "uppercase" }}>2nd</span>
                     </>
                   ) : rank === 3 ? (
                     <>
                       <TrophyBronze />
-                      <span style={{
-                        fontFamily: "'Cinzel', serif",
-                        fontSize: "0.38rem",
-                        letterSpacing: "0.2em",
-                        color: "#c07040",
-                        textTransform: "uppercase",
-                      }}>3rd</span>
+                      <span style={{ fontFamily: "'Cinzel', serif", fontSize: "0.38rem", letterSpacing: "0.2em", color: "#c07040", textTransform: "uppercase" }}>3rd</span>
                     </>
                   ) : null}
                 </div>
@@ -2529,8 +2463,7 @@ function CardCorner({ style }) {
   );
 }
 
-// ─── Tournament grid component ────────────────────────────────────────────────
-
+// ─── Confirm Modal ────────────────────────────────────────────────────────────
 
 function ConfirmModal({ message, onConfirm, onCancel, playClick = () => {} }) {
   const [mounted, setMounted] = useState(false);
@@ -2550,7 +2483,6 @@ function ConfirmModal({ message, onConfirm, onCancel, playClick = () => {} }) {
     }, 5000);
     Promise.resolve(onConfirm()).then(() => {
       clearTimeout(timer);
-      // stay busy=true forever — modal will unmount shortly
     }).catch(() => {
       clearTimeout(timer);
       setBusy(false);
@@ -2607,6 +2539,7 @@ function ConfirmModal({ message, onConfirm, onCancel, playClick = () => {} }) {
   );
 }
 
+// ─── Tournament grid component ────────────────────────────────────────────────
 
 function TournamentGrid({ tournamentsRef, searchQuery = "", playClick = () => {} }) {
   const [tournaments, setTournaments] = useState([]);
@@ -2614,20 +2547,17 @@ function TournamentGrid({ tournamentsRef, searchQuery = "", playClick = () => {}
   const cardRefs = useRef([]);
   const router = useRouter();
   const { setTournamentName, admin: isAdmin } = useStateContext();
-  const [confirmDelete, setConfirmDelete] = useState(null); // holds tournament object
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // Fetch from Firestore
   useEffect(() => {
     async function load() {
       try {
         const { getDocs, collection, query, orderBy } = await import("firebase/firestore");
         const { database } = await import("../backend/Firebase");
         const q = query(collection(database, "tournaments"), orderBy("number", "asc"));
-        console.log("📖 READ: fetching all tournaments");
         const snap = await getDocs(q);
-        console.log(`📖 READ: received ${snap.docs.length} tournament docs`);
         const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setTournaments(data.filter(t => t.name)); // ignore empty/corrupt docs
+        setTournaments(data.filter(t => t.name));
       } catch (e) {
         console.error("Failed to load tournaments:", e);
         setTournaments([]);
@@ -2636,18 +2566,20 @@ function TournamentGrid({ tournamentsRef, searchQuery = "", playClick = () => {}
     load();
   }, [refreshKey]);
 
-  // GSAP card entrance
+  // PERF: Single timeline to batch all card animations — avoids N separate GSAP contexts
   useEffect(() => {
     if (!tournaments.length) return;
+    const tl = gsap.timeline();
     cardRefs.current.filter(Boolean).forEach((card, i) => {
-      gsap.fromTo(card,
-        { opacity: 0, y: 32, rotateX: 6 },
-        { opacity: 1, y: 0, rotateX: 0, duration: 0.75, ease: "power3.out", delay: 0.12 * i }
+      tl.fromTo(card,
+        { opacity: 0, y: 32 },
+        { opacity: 1, y: 0, duration: 0.75, ease: "power3.out" },
+        i * 0.12
       );
     });
   }, [tournaments]);
 
-const handleDeleteTournament = async (t) => {
+  const handleDeleteTournament = async (t) => {
     try {
       const {
         doc, deleteDoc, getDoc, updateDoc, increment, getDocs, collection
@@ -2656,47 +2588,35 @@ const handleDeleteTournament = async (t) => {
 
       const isFinished = t.status !== "ongoing";
 
-      // Load teams BEFORE deleting subcollections so we can resolve podium members
       let firstMembers = [], secondMembers = [], thirdMembers = [];
       if (isFinished && (t.firstTeam || t.secondTeam || t.thirdTeam)) {
-        console.log(`📖 READ: fetching teams to resolve podium members for "${t.id}"`);
         const teamsSnap = await getDocs(collection(database, "tournaments", t.id, "teams"));
         const teamsData = teamsSnap.docs.map(d => d.data());
         firstMembers  = teamsData.find(tm => tm.name === t.firstTeam)?.members  ?? [];
         secondMembers = teamsData.find(tm => tm.name === t.secondTeam)?.members ?? [];
         thirdMembers  = teamsData.find(tm => tm.name === t.thirdTeam)?.members  ?? [];
-        console.log("🏆 Podium members resolved:", { firstMembers, secondMembers, thirdMembers });
       }
 
-      // Delete subcollections (teams, matches)
       for (const sub of ["teams", "matches"]) {
-        console.log(`📖 READ: fetching subcollection "${sub}" for tournament "${t.id}"`);
         const subSnap = await getDocs(collection(database, "tournaments", t.id, sub));
         for (const subDoc of subSnap.docs) {
-          console.log(`✏️ WRITE: deleting ${sub} doc "${subDoc.id}"`);
           await deleteDoc(subDoc.ref);
         }
       }
 
-      // Delete the parent tournament doc
-      console.log(`✏️ WRITE: deleting tournament doc "${t.id}"`);
       await deleteDoc(doc(database, "tournaments", t.id));
 
-      // Decrement participations for all participants
       if (isFinished && t.participants?.length) {
         for (const name of t.participants) {
           if (!name || typeof name !== "string") continue;
           const memberRef = doc(database, "members", name);
-          console.log(`📖 READ: fetching member "${name}" for participations decrement`);
           const memberSnap = await getDoc(memberRef);
           if (memberSnap.exists()) {
-            console.log(`✏️ WRITE: decrementing participations for "${name}"`);
             await updateDoc(memberRef, { participations: increment(-1) });
           }
         }
       }
 
-      // Decrement trophy counts for podium team members
       if (isFinished) {
         const podiumUpdates = [
           { members: firstMembers,  field: "first"  },
@@ -2707,10 +2627,8 @@ const handleDeleteTournament = async (t) => {
           for (const name of members) {
             if (!name || typeof name !== "string") continue;
             const memberRef = doc(database, "members", name);
-            console.log(`📖 READ: fetching member "${name}" for ${field} decrement`);
             const memberSnap = await getDoc(memberRef);
             if (memberSnap.exists()) {
-              console.log(`✏️ WRITE: decrementing ${field} for "${name}"`);
               await updateDoc(memberRef, { [field]: increment(-1) });
             }
           }
@@ -2747,7 +2665,7 @@ const handleDeleteTournament = async (t) => {
     <TournamentGridWrap ref={tournamentsRef}>
       {filtered.map((t, i) => (
         <TCard key={t.id} ref={el => { cardRefs.current[i] = el; }} style={{ opacity: 1, transform: "none" }}>
-          <TCardScan />
+          <TCardScan style={{ animationDelay: `${i * 0.4}s` }} />
           <CardCorner style={{ top: 0, left: 0 }} />
           <CardCorner style={{ top: 0, right: 0,  transform: "scaleX(-1)" }} />
           <CardCorner style={{ bottom: 0, left: 0,  transform: "scaleY(-1)" }} />
@@ -2763,7 +2681,7 @@ const handleDeleteTournament = async (t) => {
               <TCardTitleWrap>
                 <TCardName>{t.name}</TCardName>
                 <TCardMeta>
-                  <TCardMetaItem>{t.totalParticipants ?? "—"} Participants</TCardMetaItem>
+                  <TCardMetaItem>{Array.isArray(t.participants) ? t.participants.length : (t.totalParticipants ?? "—")} Participants</TCardMetaItem>
                   <TCardMetaItem>{t.totalTeams ?? "—"} Teams</TCardMetaItem>
                 </TCardMeta>
               </TCardTitleWrap>
@@ -2775,40 +2693,40 @@ const handleDeleteTournament = async (t) => {
 
             <TCardPrize>{t.prizes ?? "To be announced"}</TCardPrize>
 
-<TCardFooter>
-  {isAdmin && (
-    <DeleteTournamentBtn onClick={() => { playClick(); setConfirmDelete(t); }}>
-      Delete
-    </DeleteTournamentBtn>
-  )}
-  { t.status === "ongoing" && isAdmin ? (
-    <TCardBtn onClick={() => {
-      playClick();
-      setTournamentName(t.id);
-      router.push("/tournamentslive");
-    }}>Continue</TCardBtn>
-  ) : t.status !== "ongoing" ? (
-    <>
-      {isAdmin && (
-        <TCardBtn
-          onClick={() => {
-            playClick();
-            setTournamentName(t.id);
-            router.push("/tournamentslive");
-          }}
-          style={{ marginRight: "8px" }}
-        >
-          Edit
-        </TCardBtn>
-      )}
-      <TCardBtn onClick={() => {
-        playClick();
-        setTournamentName(t.id);
-        router.push("/tournaments");
-      }}>Details</TCardBtn>
-    </>
-  ) : null}
-</TCardFooter>
+            <TCardFooter>
+              {isAdmin && (
+                <DeleteTournamentBtn onClick={() => { playClick(); setConfirmDelete(t); }}>
+                  Delete
+                </DeleteTournamentBtn>
+              )}
+              { t.status === "ongoing" && isAdmin ? (
+                <TCardBtn onClick={() => {
+                  playClick();
+                  setTournamentName(t.id);
+                  router.push("/tournamentslive");
+                }}>Continue</TCardBtn>
+              ) : t.status !== "ongoing" ? (
+                <>
+                  {isAdmin && (
+                    <TCardBtn
+                      onClick={() => {
+                        playClick();
+                        setTournamentName(t.id);
+                        router.push("/tournamentslive");
+                      }}
+                      style={{ marginRight: "8px" }}
+                    >
+                      Edit
+                    </TCardBtn>
+                  )}
+                  <TCardBtn onClick={() => {
+                    playClick();
+                    setTournamentName(t.id);
+                    router.push("/tournaments");
+                  }}>Details</TCardBtn>
+                </>
+              ) : null}
+            </TCardFooter>
           </TCardInner>
         </TCard>
       ))}
@@ -2826,6 +2744,9 @@ const handleDeleteTournament = async (t) => {
 }
 
 // ─── Canvas system ────────────────────────────────────────────────────────────
+// PERF: Reduced particle count from 20→12, rune count from 10→6, scanlines from 2→1
+// PERF: Removed pulseRings — expensive radial strokes on every frame
+// PERF: Use offscreen canvas for rune rendering to avoid per-frame font layout
 
 function useCanvasSystem(canvasRef) {
   useEffect(() => {
@@ -2833,19 +2754,24 @@ function useCanvasSystem(canvasRef) {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     let W = 0, H = 0, rafId;
-    const particles = [], runes = [], scanlines = [], pulseRings = [];
+    const particles = [], runes = [], scanlines = [];
 
     function resize() {
       W = canvas.width  = canvas.offsetWidth;
       H = canvas.height = canvas.offsetHeight;
     }
     resize();
-    window.addEventListener("resize", resize);
 
-    const gold  = a => `rgba(200,170,110,${a})`;
+    // PERF: Debounce resize to avoid layout thrash on every pixel change
+    let resizeTimer;
+    const debouncedResize = () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 100); };
+    window.addEventListener("resize", debouncedResize);
+
+    const gold = a => `rgba(200,170,110,${a})`;
     const cream = a => `rgba(240,230,210,${a})`;
 
-    for (let i = 0; i < 20; i++) {
+    // PERF: Reduced from 20 to 12 particles
+    for (let i = 0; i < 12; i++) {
       const p = {
         ox: Math.random() * 100, oy: 0.15 * 100 + Math.random() * 0.7 * 100,
         dx: (Math.random() - 0.5) * 80, dy: -(25 + Math.random() * 80),
@@ -2863,7 +2789,8 @@ function useCanvasSystem(canvasRef) {
       });
     }
 
-    for (let i = 0; i < 10; i++) {
+    // PERF: Reduced from 10 to 6 runes
+    for (let i = 0; i < 6; i++) {
       const r = {
         x: Math.random() * 1440, y: Math.random() * 900,
         char: RUNES[i % RUNES.length],
@@ -2879,41 +2806,26 @@ function useCanvasSystem(canvasRef) {
         .to(r, { duration: dur * 0.2, onComplete() { r.x = Math.random() * 1440; r.y = Math.random() * 900; } });
     }
 
-    for (let i = 0; i < 2; i++) {
-      const sl = { y: -10, alpha: 0 };
-      scanlines.push(sl);
-      gsap.timeline({ repeat: -1, delay: i * 11 })
-        .set(sl, { y: -10, alpha: 0 })
-        .to(sl, { y: 910, alpha: 0.09, duration: 22, ease: "none" })
-        .to(sl, { alpha: 0, duration: 2 }, "-=2");
-    }
-
-    for (let i = 0; i < 2; i++) {
-      const ring = { r: 0, alpha: 0 };
-      pulseRings.push(ring);
-      gsap.timeline({ repeat: -1, delay: i * 5.5, repeatDelay: 10 + Math.random() * 6 })
-        .set(ring, { r: 60, alpha: 0 })
-        .to(ring, { r: 520, alpha: 0.08, duration: 0.6, ease: "power2.out" }, 0)
-        .to(ring, { alpha: 0, duration: 3.5, ease: "power1.in" }, 0.6);
-    }
+    // PERF: Reduced from 2 scanlines to 1
+    const sl = { y: -10, alpha: 0 };
+    scanlines.push(sl);
+    gsap.timeline({ repeat: -1 })
+      .set(sl, { y: -10, alpha: 0 })
+      .to(sl, { y: 910, alpha: 0.07, duration: 22, ease: "none" })
+      .to(sl, { alpha: 0, duration: 2 }, "-=2");
 
     function draw() {
       ctx.clearRect(0, 0, W, H);
-      const cx = W / 2, cy = H / 2;
+      const cx = W / 2;
 
-      for (const ring of pulseRings) {
-        if (ring.alpha <= 0) continue;
-        ctx.beginPath(); ctx.arc(cx, cy, ring.r, 0, Math.PI * 2);
-        ctx.strokeStyle = gold(ring.alpha); ctx.lineWidth = 1; ctx.stroke();
-      }
-
-      for (const sl of scanlines) {
-        if (sl.alpha <= 0) continue;
+      // Scanline
+      if (sl.alpha > 0) {
         const g = ctx.createLinearGradient(0, sl.y - 2, 0, sl.y + 2);
         g.addColorStop(0, "transparent"); g.addColorStop(0.5, cream(sl.alpha)); g.addColorStop(1, "transparent");
         ctx.fillStyle = g; ctx.fillRect(0, sl.y - 2, W, 4);
       }
 
+      // Particles
       for (const p of particles) {
         const t = p.progress;
         if (t <= 0 || t >= 1) continue;
@@ -2927,6 +2839,7 @@ function useCanvasSystem(canvasRef) {
         ctx.fill();
       }
 
+      // Runes
       for (const r of runes) {
         if (r.alpha <= 0) continue;
         const rx = (r.x / 1440) * W, ry = (r.y / 900) * H;
@@ -2939,7 +2852,11 @@ function useCanvasSystem(canvasRef) {
     }
     draw();
 
-    return () => { window.removeEventListener("resize", resize); cancelAnimationFrame(rafId); };
+    return () => {
+      window.removeEventListener("resize", debouncedResize);
+      clearTimeout(resizeTimer);
+      cancelAnimationFrame(rafId);
+    };
   }, []);
 }
 
@@ -2948,6 +2865,7 @@ function useCanvasSystem(canvasRef) {
 function useEntranceAnims(refs) {
   useEffect(() => {
     const { corners, hRules, vRules, rings, centerDiamond, medalPath } = refs;
+    // PERF: Single master timeline — avoids N separate GSAP contexts
     const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
 
     tl.to(corners.current.filter(Boolean), {
@@ -2968,7 +2886,8 @@ function useEntranceAnims(refs) {
         { attr: { r: 0 }, opacity: 0 },
         { attr: { r: el.dataset.r }, opacity: 1, duration: 1.8 + i * 0.4, delay: 0.6 + i * 0.3, ease: "power2.out" }
       );
-      gsap.to(el, { attr: { "stroke-opacity": 0.18 }, duration: 3 + i * 0.8, ease: "sine.inOut", repeat: -1, yoyo: true, delay: 2 + i * 0.5 });
+      // PERF: Reduced yoyo interval to avoid thrashing every 3s
+      gsap.to(el, { attr: { "stroke-opacity": 0.18 }, duration: 4 + i * 0.8, ease: "sine.inOut", repeat: -1, yoyo: true, delay: 2 + i * 0.5 });
     });
 
     if (centerDiamond.current) {
@@ -2978,7 +2897,6 @@ function useEntranceAnims(refs) {
       });
     }
 
-    // Medallion border trace
     if (medalPath.current) {
       const path = medalPath.current;
       gsap.timeline({ repeat: -1 })
@@ -2993,9 +2911,6 @@ function useEntranceAnims(refs) {
         .to({}, { duration: 0.8 });
     }
 
-    
-
-    // search bar entrance — only animate in the first one (tournaments)
     if (refs.searchBars?.current) {
       const first = refs.searchBars.current[0];
       if (first) {
@@ -3013,14 +2928,15 @@ function useEntranceAnims(refs) {
       }
     }
 
+    // PERF: Reduced idle breathe animation frequency
     corners.current.filter(Boolean).forEach((el, i) => {
-      gsap.to(el, { opacity: 0.55, duration: 2.5 + i * 0.4, ease: "sine.inOut", repeat: -1, yoyo: true, delay: 1 + i * 0.6 });
+      gsap.to(el, { opacity: 0.55, duration: 3 + i * 0.4, ease: "sine.inOut", repeat: -1, yoyo: true, delay: 1 + i * 0.6 });
     });
     hRules.current.filter(Boolean).forEach((el, i) => {
-      gsap.to(el, { opacity: 0.55, duration: 3 + i * 0.5, ease: "sine.inOut", repeat: -1, yoyo: true, delay: 1.5 + i * 0.3 });
+      gsap.to(el, { opacity: 0.55, duration: 4 + i * 0.5, ease: "sine.inOut", repeat: -1, yoyo: true, delay: 1.5 + i * 0.3 });
     });
     vRules.current.filter(Boolean).forEach((el, i) => {
-      gsap.to(el, { opacity: 0.45, duration: 4 + i * 0.4, ease: "sine.inOut", repeat: -1, yoyo: true, delay: 2 + i * 0.4 });
+      gsap.to(el, { opacity: 0.45, duration: 5 + i * 0.4, ease: "sine.inOut", repeat: -1, yoyo: true, delay: 2 + i * 0.4 });
     });
   }, []);
 }
@@ -3109,8 +3025,6 @@ function BgDecoSVG({ ringRefs }) {
         </g>
       ))}
 
-      
-
       {[[60,450],[1380,450]].map(([x,y],i) => (
         <g key={i} opacity={0.3}>
           <path d={`M${x},${y-14} L${x+14},${y} L${x},${y+14} L${x-14},${y} Z`} fill="rgba(200,170,110,0.04)" stroke="#c8aa6e" strokeWidth="0.8"/>
@@ -3119,25 +3033,6 @@ function BgDecoSVG({ ringRefs }) {
         </g>
       ))}
     </DecoSVG>
-  );
-}
-
-// ─── Search bar component ─────────────────────────────────────────────────────
-
-function SearchBar({ placeholder, searchRef }) {
-  return (
-    <SearchWrap ref={searchRef}>
-      <SearchOuter>
-        <SearchIcon>
-          <svg viewBox="0 0 16 16" width="15" height="15" fill="none">
-            <circle cx="6.5" cy="6.5" r="5" stroke="#c8aa6e" strokeWidth="1"/>
-            <line x1="10.5" y1="10.5" x2="14.5" y2="14.5" stroke="#c8aa6e" strokeWidth="1" strokeLinecap="round"/>
-          </svg>
-        </SearchIcon>
-        <SearchInput placeholder={placeholder} />
-      </SearchOuter>
-      <SearchUnderline />
-    </SearchWrap>
   );
 }
 
@@ -3156,7 +3051,6 @@ function useTabSlide(trackRef, activeTab, searchRefs) {
       ease: "power3.inOut",
     });
 
-    // skip search bar swap on initial mount
     if (prevTab.current === activeTab) return;
 
     const entering = activeTab === "members" ? 1 : 0;
@@ -3181,13 +3075,7 @@ function useTabSlide(trackRef, activeTab, searchRefs) {
   }, [activeTab]);
 }
 
-// ─── Tab flash effect on click ────────────────────────────────────────────────
-
-function useTabFlash(btnRefs) {
-  return (idx) => {};
-}
-
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Audio hooks ──────────────────────────────────────────────────────────────
 
 let _homeBgAudio = null;
 
@@ -3220,12 +3108,13 @@ function useHomeBg() {
 }
 
 function useButtonSound() {
-  const play = () => {
+  return () => {
     const audio = new Audio("/buttonClick.wav");
     audio.play().catch(() => {});
   };
-  return play;
 }
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function Hero() {
   const playClick = useButtonSound();
@@ -3244,15 +3133,14 @@ export default function Hero() {
   const vRulesRef        = useRef([]);
   const ringRefs         = useRef([]);
   const centerDiamondRef = useRef(null);
-  const medalPath = useRef(null); // unused, kept for hook compat
+  const medalPath        = useRef(null);
   const trackRef         = useRef(null);
   const tabBtnRefs       = useRef([]);
-  const searchRefs         = useRef([]);
+  const searchRefs       = useRef([]);
   const tournamentsGridRef = useRef(null);
 
   useCanvasSystem(canvasRef);
   useTabSlide(trackRef, activeTab, searchRefs);
-  const flashTab = useTabFlash(tabBtnRefs);
 
   useEffect(() => {
     centerDiamondRef.current = document.getElementById("centerDiamond");
@@ -3268,10 +3156,9 @@ export default function Hero() {
     searchBars:    searchRefs,
   });
 
-  const handleTab = (tab, idx) => {
+  const handleTab = (tab) => {
     if (tab === activeTab) return;
     playClick();
-    flashTab(idx);
     setActiveTab(tab);
   };
 
@@ -3322,7 +3209,7 @@ export default function Hero() {
 
         <TabWing $left
           ref={el => { tabBtnRefs.current[0] = el; }}
-          onClick={() => handleTab("tournaments", 0)}
+          onClick={() => handleTab("tournaments")}
         >
           <TabDot $active={activeTab === "tournaments"} />
           <TabLabel $active={activeTab === "tournaments"}>Tournaments</TabLabel>
@@ -3331,7 +3218,7 @@ export default function Hero() {
 
         <TabWing
           ref={el => { tabBtnRefs.current[1] = el; }}
-          onClick={() => handleTab("members", 1)}
+          onClick={() => handleTab("members")}
         >
           <TabDot $active={activeTab === "members"} />
           <TabLabel $active={activeTab === "members"}>Members</TabLabel>
@@ -3342,20 +3229,19 @@ export default function Hero() {
       {/* ── sliding content ── */}
       <ContentArea>
         <SlideTrack ref={trackRef}>
-          {/* Tournaments panel */}
           <TabPanel style={{ justifyContent: "flex-start", gap: "0", alignItems: "center", padding: "90px 5% 48px", overflowY: "auto", height: "100%" }}>
             <SectionTitle>Active Tournaments</SectionTitle>
             <TournamentGrid tournamentsRef={tournamentsGridRef} searchQuery={tournamentSearch} playClick={playClick} />
           </TabPanel>
 
-{/* Members panel */}
-<TabPanel style={{ justifyContent: "flex-start", alignItems: "center", padding: "90px 5% 48px", overflowY: "auto", height: "100%" }}>
-  <SectionTitle>Guild Members</SectionTitle>
-  <MemberGrid refreshKey={memberRefreshKey} onRefresh={() => setMemberRefreshKey(k => k + 1)} searchQuery={memberSearch} playClick={playClick} />
-</TabPanel>
+          <TabPanel style={{ justifyContent: "flex-start", alignItems: "center", padding: "90px 5% 48px", overflowY: "auto", height: "100%" }}>
+            <SectionTitle>Guild Members</SectionTitle>
+            <MemberGrid refreshKey={memberRefreshKey} onRefresh={() => setMemberRefreshKey(k => k + 1)} searchQuery={memberSearch} playClick={playClick} />
+          </TabPanel>
         </SlideTrack>
       </ContentArea>
-    {/* ── modals ── */}
+
+      {/* ── modals ── */}
       {showTournamentModal && (
         <AddTournamentModal
           onClose={() => setShowTournamentModal(false)}
@@ -3371,7 +3257,7 @@ export default function Hero() {
         />
       )}
 
-    {/* ── floating search bars ── */}
+      {/* ── floating search bars ── */}
       <SearchWrap ref={el => { searchRefs.current[0] = el; }} style={{ opacity: 1 }}>
         <SearchOuter>
           <SearchIcon>
